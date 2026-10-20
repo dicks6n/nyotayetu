@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block title %}Log in{% endblock %}
+{% block content %}
+<div class="form-wrap">
+    <div class="card card-pad" style="padding:28px">
+        <div style="text-align:center;font-size:44px;margin-bottom:6px">🔮</div>
+        <h1 class="page-title" style="text-align:center">Welcome back</h1>
+        <p class="page-sub" style="text-align:center">Your plane is fuelled and waiting.</p>
+        <form method="post">{% csrf_token %}
+            {% for e in form.non_field_errors %}<div class="err field" style="color:#ff4d4d">{{ e }}</div>{% endfor %}
+            {% for field in form %}{% include '_field.html' %}{% endfor %}
+            <input type="hidden" name="next" value="{{ next }}">
+            <button class="btn btn-magic btn-block" style="padding:14px">Log in ✨</button>
+        </form>
+        <div class="form-foot">New here? <a href="{% url 'accounts:register' %}">Create an account</a></div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,12 @@
+<div class="chart">
+<svg viewBox="0 0 {{ chart.width }} {{ chart.height }}" role="img" aria-label="{{ label }}">
+    <line class="zero" x1="0" x2="{{ chart.width }}" y1="{{ chart.zero_y }}" y2="{{ chart.zero_y }}"/>
+    {% for b in chart.bars %}
+    <g class="col" data-tip="{{ b.date|date:'D d M' }} · {% if money %}{{ CURRENCY }} {{ b.value|floatformat:2 }}{% else %}{{ b.value }} {{ unit }}{% endif %}">
+        <rect class="hit" x="{{ b.hit_x }}" y="0" width="{{ b.hit_w }}" height="{{ chart.height }}"/>
+        <rect class="{% if single %}bar-one{% elif b.positive %}bar-pos{% else %}bar-neg{% endif %}" x="{{ b.x }}" y="{{ b.y }}" width="{{ b.w }}" height="{{ b.h }}" rx="3"/>
+        {% if b.show_label %}<text class="tick" x="{{ b.label_x }}" y="{{ chart.label_y }}" text-anchor="middle">{{ b.date|date:"d M" }}</text>{% endif %}
+    </g>
+    {% endfor %}
+</svg>
+</div>

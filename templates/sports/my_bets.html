@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% block title %}My Sports Bets{% endblock %}
+{% block content %}
+<h1 class="page-title">My Sports Bets</h1>
+<p class="page-sub">Every slip you've placed, settled automatically when results come in.</p>
+<div class="chips">
+    <a href="?" class="chip {% if not status %}active{% endif %}">All</a>
+    <a href="?status=open" class="chip {% if status == 'open' %}active{% endif %}">Open</a>
+    <a href="?status=won" class="chip {% if status == 'won' %}active{% endif %}">Won</a>
+    <a href="?status=lost" class="chip {% if status == 'lost' %}active{% endif %}">Lost</a>
+</div>
+<div class="grid grid-2">
+    {% for bet in page %}
+    <div class="card card-pad">
+        <div class="card-title">{{ bet.code }} <span class="badge badge-{{ bet.status }}">{{ bet.get_status_display }}</span>
+            <span class="sub">{{ bet.created_at|date:"d M Y, H:i" }}</span></div>
+        <table class="table">
+            {% for s in bet.selections.all %}
+            <tr>
+                <td>{{ s.match.home_team }} vs {{ s.match.away_team }}
+                    {% if s.match.result %}<div class="muted" style="font-size:11px">FT {{ s.match.home_score }}–{{ s.match.away_score }}</div>{% endif %}</td>
+                <td><span class="muted" style="font-size:11px">{{ s.market_label }}</span><br><b>{{ s.pick_label }}</b>{% if s.live %} <span class="badge badge-lost" style="font-size:9px">LIVE</span>{% endif %}</td>
+                <td class="num text-gold">{{ s.odds }}</td>
+                <td class="num"><span class="badge badge-{{ s.status }}">{{ s.status }}</span></td>
+            </tr>
+            {% endfor %}
+        </table>
+        <div class="slip-row" style="margin-top:10px"><span>Stake</span><b>{{ bet.stake|floatformat:2 }} {{ CURRENCY }}</b></div>
+        <div class="slip-row"><span>Total odds</span><b>{{ bet.total_odds }}</b></div>
+        <div class="slip-row win"><span>{% if bet.status == 'won' %}Won{% else %}Potential win{% endif %}</span>
+            <b>{% if bet.status == 'won' %}{{ bet.payout|floatformat:2 }}{% else %}{{ bet.potential_win|floatformat:2 }}{% endif %} {{ CURRENCY }}</b></div>
+    </div>
+    {% empty %}
+    <div class="card empty">No bets yet. <a class="text-magenta" href="{% url 'sports:list' %}">Browse matches →</a></div>
+    {% endfor %}
+</div>
+{% include '_pagination.html' %}
+{% endblock %}

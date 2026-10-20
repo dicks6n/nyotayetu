@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block title %}Join{% endblock %}
+{% block content %}
+<div class="form-wrap">
+    <div class="card card-pad" style="padding:28px">
+        <div style="text-align:center;font-size:44px;margin-bottom:6px">✨</div>
+        <h1 class="page-title" style="text-align:center">Join {{ SITE_NAME }}</h1>
+        <p class="page-sub" style="text-align:center">Create your account in seconds.</p>
+        <form method="post">{% csrf_token %}
+            {% for field in form %}{% include '_field.html' %}{% endfor %}
+            <button class="btn btn-gold btn-block" style="padding:14px">Create account</button>
+        </form>
+        <div class="form-foot">Already flying? <a href="{% url 'accounts:login' %}">Log in</a></div>
+    </div>
+</div>
+{% endblock %}

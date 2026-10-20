@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% load humanize %}
+{% block title %}Leaderboard{% endblock %}
+{% block content %}
+<h1 class="page-title">Sky Legends</h1>
+<p class="page-sub">The brightest stars of the Aviator sky.</p>
+<div class="chips">
+    <a href="?period=day" class="chip {% if period == 'day' %}active{% endif %}">Today</a>
+    <a href="?period=week" class="chip {% if period == 'week' %}active{% endif %}">This week</a>
+    <a href="?period=month" class="chip {% if period == 'month' %}active{% endif %}">This month</a>
+</div>
+<div class="grid grid-3">
+    <div class="card card-pad">
+        <div class="card-title">💎 Biggest wins</div>
+        <table class="table">
+            {% for b in top_wins %}
+            <tr><td><span class="rank rank-{{ forloop.counter }}">{{ forloop.counter }}</span></td><td>{{ b.user.username|slice:":2" }}***</td><td class="num"><span class="xbadge">{{ b.cashed_out_at }}x</span></td><td class="num text-green">{{ b.payout|floatformat:2|intcomma }}</td></tr>
+            {% empty %}<tr><td class="empty">No wins yet — be the first legend.</td></tr>{% endfor %}
+        </table>
+    </div>
+    <div class="card card-pad">
+        <div class="card-title">🚀 Highest multipliers</div>
+        <table class="table">
+            {% for b in top_multipliers %}
+            <tr><td><span class="rank rank-{{ forloop.counter }}">{{ forloop.counter }}</span></td><td>{{ b.user.username|slice:":2" }}***</td><td class="num text-magenta"><b>{{ b.cashed_out_at }}x</b></td><td class="num">{{ b.amount|floatformat:0 }}</td></tr>
+            {% empty %}<tr><td class="empty">Nothing yet.</td></tr>{% endfor %}
+        </table>
+    </div>
+    <div class="card card-pad">
+        <div class="card-title">👑 Top earners</div>
+        <table class="table">
+            {% for p in top_players %}
+            <tr><td><span class="rank rank-{{ forloop.counter }}">{{ forloop.counter }}</span></td><td>{{ p.user__username|slice:":2" }}***</td><td class="num muted">{{ p.wins }} wins</td><td class="num text-gold">{{ p.total|floatformat:2|intcomma }}</td></tr>
+            {% empty %}<tr><td class="empty">Nothing yet.</td></tr>{% endfor %}
+        </table>
+    </div>
+</div>
+{% endblock %}

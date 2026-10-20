@@ -1,0 +1,173 @@
+{% load static humanize %}<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#000000">
+    <link rel="icon" type="image/svg+xml" href="{% static 'img/nyota-logo.svg' %}">
+    <title>{% block title %}{{ SITE_NAME }}{% endblock %} · {{ SITE_NAME }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bungee&family=JetBrains+Mono:wght@600&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+<canvas id="ny-bg" aria-hidden="true"></canvas>
+<div class="ny-vignette" aria-hidden="true"></div>
+<div class="ny-hud" aria-hidden="true">
+    <span>{{ SITE_NAME|upper }} // LIVE ENGINE</span>
+    <span id="ny-hud-feed">feeds: connecting<span class="blink">_</span></span>
+    <span id="ny-hud-scan">scanning markets<span class="blink">_</span></span>
+</div>
+<div class="app">
+    {% with url=request.resolver_match.view_name %}
+    <header class="site-header">
+        <div class="container">
+            <a href="{% url 'core:home' %}" class="logo" aria-label="{{ SITE_NAME }} home">
+                <img src="{% static 'img/nyota-logo.svg' %}" alt="">
+                <span><span class="w1">NYOTA</span> <span class="w2">YETU</span></span>
+            </a>
+            <nav class="main-nav" aria-label="Main">
+                <a href="{% url 'core:home' %}" class="{% if url == 'core:home' or url == 'aviator:play' %}active{% endif %}"><i>✈️</i>Aviator</a>
+                <a href="{% url 'sports:list' %}?status=live" class="{% if url == 'sports:list' and request.GET.tab == 'live' or url == 'sports:list' and request.GET.status == 'live' %}active{% endif %}"><i>🔴</i>Live{% if LIVE_COUNT %}<sup>{{ LIVE_COUNT }}</sup>{% endif %}</a>
+                <a href="{% url 'sports:list' %}" class="{% if url == 'sports:list' and request.GET.tab != 'live' and request.GET.tab != 'virtual' and request.GET.status != 'live' or url == 'sports:match' or url == 'sports:my_bets' %}active{% endif %}"><i>⚽</i>Football</a>
+                <a href="{% url 'sports:list' %}?tab=virtual" class="{% if url == 'sports:list' and request.GET.tab == 'virtual' %}active{% endif %}"><i>⚡</i>Virtuals</a>
+                <a href="{% url 'casino:lobby' %}" class="{% if 'casino' in url %}active{% endif %}"><i>🎰</i>Casino</a>
+                <a href="{% url 'core:promos' %}" class="{% if url == 'core:promos' %}active{% endif %}"><i>🎁</i>Promos</a>
+            </nav>
+            <div class="header-right">
+                {% if user.is_authenticated %}
+                    <a href="{% url 'wallet:deposit' %}" class="btn btn-gold">Deposit</a>
+                    <a href="{% url 'wallet:transactions' %}" class="balance-pill" title="Balance">
+                        <span>{{ CURRENCY }}</span>
+                        <strong id="balanceAmount" data-balance="{{ balance }}">{{ balance|floatformat:2|intcomma }}</strong>
+                    </a>
+                {% else %}
+                    <a href="{% url 'accounts:login' %}" class="btn btn-ghost btn-sm login-link">Log in</a>
+                    <a href="{% url 'accounts:register' %}" class="btn btn-gold btn-sm">Join</a>
+                {% endif %}
+                <button class="menu-btn" id="menuBtn" aria-label="Open menu">☰</button>
+            </div>
+        </div>
+        <nav class="quickbar" aria-label="Games">
+            <div class="container">
+                <a href="{% url 'core:home' %}" class="{% if url == 'core:home' %}on{% endif %}">✈️ Aviator</a>
+                {% for g in CASINO_GAMES %}<a href="{% url g.url %}" class="{% if url == g.url %}on{% endif %}">{{ g.icon }} {{ g.name }}</a>{% endfor %}
+                <span class="qsep"></span>
+                {% if user.is_authenticated %}<a href="{% url 'sports:my_bets' %}" class="{% if url == 'sports:my_bets' %}on{% endif %}">🎫 My bets</a>{% endif %}
+                <a href="{% url 'core:leaderboard' %}" class="{% if url == 'core:leaderboard' %}on{% endif %}">🏆 Leaders</a>
+                <a href="{% url 'core:help' %}" class="{% if url == 'core:help' %}on{% endif %}">❓ Help</a>
+            </div>
+        </nav>
+    </header>
+
+    <div class="drawer-backdrop" id="drawerBackdrop"></div>
+    <aside class="drawer" id="drawer" aria-label="Menu">
+        <div class="drawer-head">
+            {% if user.is_authenticated %}
+                <a href="{% url 'accounts:profile' %}" class="user-chip">
+                    <span class="avatar">{{ user.username|first|upper }}</span>
+                    <span>{{ user.username }} ›</span>
+                </a>
+            {% else %}
+                <span class="user-chip"><span class="avatar">★</span><span>Karibu!</span></span>
+            {% endif %}
+            <button class="close-btn" id="closeBtn" aria-label="Close menu">&times;</button>
+        </div>
+        <div class="cashback-card">
+            <div>
+                <div class="label">{{ CASHBACK_PERCENT }}% cashback in</div>
+                <div class="time" id="cashbackTimer" data-at="{{ cashback_at }}">--</div>
+            </div>
+            <div style="font-size:26px">💰</div>
+        </div>
+        <ul class="drawer-menu">
+            <li><a href="{% url 'core:home' %}" class="{% if url == 'core:home' or url == 'aviator:play' %}active{% endif %}"><span class="ico">✈️</span>Aviator</a></li>
+            <li><a href="{% url 'casino:lobby' %}" class="{% if url == 'casino:lobby' %}active{% endif %}"><span class="ico">🎰</span>Casino</a></li>
+            {% for g in CASINO_GAMES %}<li><a href="{% url g.url %}" class="{% if url == g.url %}active{% endif %}" style="padding-left:30px;font-size:14px"><span class="ico">{{ g.icon }}</span>{{ g.name }}</a></li>{% endfor %}
+            <li><a href="{% url 'sports:list' %}" class="{% if url == 'sports:list' %}active{% endif %}"><span class="ico">⚽</span>Sports</a></li>
+            {% if user.is_authenticated %}
+            <li><a href="{% url 'sports:my_bets' %}" class="{% if url == 'sports:my_bets' %}active{% endif %}"><span class="ico">🎫</span>My Sports Bets</a></li>
+            {% endif %}
+        </ul>
+        <div class="drawer-section">Wallet</div>
+        <ul class="drawer-menu">
+            {% if user.is_authenticated %}
+            <li><a href="{% url 'wallet:deposit' %}" class="{% if url == 'wallet:deposit' %}active{% endif %}"><span class="ico">⬇️</span>Deposit</a></li>
+            <li><a href="{% url 'wallet:withdraw' %}" class="{% if url == 'wallet:withdraw' %}active{% endif %}"><span class="ico">⬆️</span>Withdraw</a></li>
+            <li><a href="{% url 'wallet:transactions' %}" class="{% if url == 'wallet:transactions' %}active{% endif %}"><span class="ico">📜</span>Transactions</a></li>
+            {% else %}
+            <li><a href="{% url 'accounts:login' %}"><span class="ico">🔑</span>Log in</a></li>
+            <li><a href="{% url 'accounts:register' %}"><span class="ico">✨</span>Create account</a></li>
+            {% endif %}
+        </ul>
+        <div class="drawer-section">More</div>
+        <ul class="drawer-menu">
+            <li><a href="{% url 'core:promos' %}" class="{% if url == 'core:promos' %}active{% endif %}"><span class="ico">🎁</span>Promos</a></li>
+            <li><a href="{% url 'core:leaderboard' %}" class="{% if url == 'core:leaderboard' %}active{% endif %}"><span class="ico">🏆</span>Leaderboard</a></li>
+            <li><a href="{% url 'core:referral' %}" class="{% if url == 'core:referral' %}active{% endif %}"><span class="ico">👥</span>Referral</a></li>
+            <li><a href="{% url 'aviator:fairness' %}" class="{% if url == 'aviator:fairness' %}active{% endif %}"><span class="ico">🔮</span>Provably Fair</a></li>
+            <li><a href="{% url 'casino:fairness' %}" class="{% if url == 'casino:fairness' %}active{% endif %}"><span class="ico">🔐</span>Casino Seeds</a></li>
+        </ul>
+        {% if user.is_staff %}
+        <div class="drawer-section">Staff</div>
+        <ul class="drawer-menu">
+            <li><a href="{% url 'backoffice:dashboard' %}" class="{% if url == 'backoffice:dashboard' %}active{% endif %}"><span class="ico">📊</span>Back office</a></li>
+            <li><a href="{% url 'backoffice:players' %}" class="{% if 'backoffice:player' in url %}active{% endif %}"><span class="ico">🧑‍🚀</span>Players</a></li>
+            <li><a href="{% url 'admin:index' %}"><span class="ico">⚙️</span>Django admin</a></li>
+        </ul>
+        {% endif %}
+        <div class="drawer-foot">
+            <ul class="drawer-menu"><li><a href="{% url 'core:help' %}"><span class="ico">❓</span>Help</a></li></ul>
+            {% if user.is_authenticated %}
+            <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}
+                <button type="submit"><span class="ico">⏻</span>Logout</button>
+            </form>
+            {% endif %}
+        </div>
+    </aside>
+    {% endwith %}
+
+    <div class="ticker" id="ticker" data-url="{% url 'sports:api_ticker' %}">
+        <span class="lbl"><span class="live-dot"></span> LIVE</span>
+        <div class="ticker-track" id="tickerTrack"></div>
+    </div>
+
+    <div class="messages" id="messages">
+        {% for message in messages %}
+            <div class="toast {{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+    </div>
+
+    <main>
+        <div class="container">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    {% with url=request.resolver_match.view_name %}
+    <nav class="tabbar" aria-label="Quick navigation">
+        <a href="{% url 'core:home' %}" class="{% if url == 'core:home' %}on{% endif %}"><i>✈️</i>Aviator</a>
+        <a href="{% url 'sports:list' %}" class="{% if url == 'sports:list' and request.GET.status != 'live' or url == 'sports:match' %}on{% endif %}"><i>⚽</i>Sports</a>
+        <a href="{% url 'sports:list' %}?status=live" class="tab-live {% if url == 'sports:list' and request.GET.status == 'live' %}on{% endif %}"><i>🔴</i>Live{% if LIVE_COUNT %}<b>{{ LIVE_COUNT }}</b>{% endif %}</a>
+        <a href="{% url 'casino:lobby' %}" class="{% if 'casino' in url %}on{% endif %}"><i>🎰</i>Casino</a>
+        {% if user.is_authenticated %}<a href="{% url 'accounts:profile' %}" class="{% if url == 'accounts:profile' %}on{% endif %}"><i>👤</i>Me</a>
+        {% else %}<a href="{% url 'accounts:login' %}"><i>🔑</i>Log in</a>{% endif %}
+    </nav>
+    {% endwith %}
+
+    <footer class="site-footer">
+        <div class="container">
+            <span class="age">18+</span> 🇰🇪 Cheza kwa uwajibikaji — play responsibly. Betting can be addictive — set limits and never bet more than you can afford to lose.
+            <div style="margin-top:8px">&copy; {% now "Y" %} <b>{{ SITE_NAME }}</b> · Nyota yetu, ushindi wetu ✦ · <a href="{% url 'core:help' %}">Help</a> · <a href="{% url 'aviator:fairness' %}">Provably fair</a></div>
+        </div>
+    </footer>
+</div>
+
+<script>window.LUMA = { currency: "{{ CURRENCY }}", loggedIn: {{ user.is_authenticated|yesno:"true,false" }}, loginUrl: "{% url 'accounts:login' %}" };</script>
+<script src="{% static 'js/app.js' %}"></script>
+<script src="{% static 'js/bg.js' %}"></script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

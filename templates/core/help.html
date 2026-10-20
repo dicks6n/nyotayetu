@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block title %}Help{% endblock %}
+{% block content %}
+<h1 class="page-title">Help &amp; FAQ</h1>
+<p class="page-sub">Everything you need to know before take-off.</p>
+<div class="card card-pad faq">
+    <details open><summary>How does Aviator work?</summary>
+        <p>Each round has a {{ aviator.BETTING_SECONDS }}-second betting window. Then the plane takes off and the multiplier climbs from 1.00x. Press <b>Cash out</b> before the plane flies away to win your bet × the current multiplier. If it flies away first, the bet is lost.</p></details>
+    <details><summary>What are the two bet panels?</summary>
+        <p>You can place two independent bets per round — for example a safe one with auto cash out at 1.5x and a bold one you cash out manually.</p></details>
+    <details><summary>What do Auto bet and Auto cash out do?</summary>
+        <p>Open the <b>Auto</b> tab on a panel. <b>Auto cash out</b> cashes your bet out automatically the moment the multiplier reaches your target — even if you close the page. <b>Auto bet</b> re-places the same bet at the start of each round until you cancel or run out of balance.</p></details>
+    <details><summary>What casino games are there?</summary>
+        <p>Dice, Mines, Plinko, Wheel, Roulette (European single zero), Baccarat and Blackjack (blackjack pays 3:2, dealer stands on all 17s, double on any two cards, split once). Every result comes from your own seed pair — rotate it any time on the <a class="text-magenta" href="{% url 'casino:fairness' %}">Casino Seeds</a> page to verify past bets.</p></details>
+    <details><summary>Is the game fair?</summary>
+        <p>Yes — every round's result is fixed before betting opens, and its hash is shown on the game screen. After the round, the secret seed is revealed so you can verify it. See <a class="text-magenta" href="{% url 'aviator:fairness' %}">Provably Fair</a>.</p></details>
+    <details><summary>What are the bet limits?</summary>
+        <p>Aviator: {{ CURRENCY }} {{ aviator.MIN_BET }} – {{ aviator.MAX_BET }} per bet. Withdrawals from {{ CURRENCY }} {{ min_withdrawal }}.</p></details>
+    <details><summary>Which football markets can I bet on?</summary>
+        <p>1X2, Double Chance, Draw No Bet, GG/NG (both teams to score), Over/Under 0.5–5.5 goals, Odd/Even goals, each team's goals over/under, Half-time 1X2, Half-time/Full-time and Correct Score — before kick-off and live. In play the odds move every few seconds; after a goal the match is suspended briefly. Tick "Accept any odds changes" on the betslip if you don't want to confirm new prices.</p></details>
+    <details><summary>What are virtual matches?</summary>
+        <p>⚡ Virtual Ligi Kuu matches are computer simulations, not real football. A new match kicks off every few minutes and lasts about 6½ minutes. They're always labelled VIRTUAL.</p></details>
+    <details><summary>How are sports bets settled?</summary>
+        <p>When a match finishes, every pick is graded automatically. A slip wins if all its picks win. Cancelled matches are voided and their odds removed from the slip.</p></details>
+    <details><summary>Responsible gaming</summary>
+        <p>You must be 18+ to play. Gambling should be entertainment, not a way to make money. Set a budget, take breaks, and never chase losses. If gambling stops being fun, reach out to a support service in your country.</p></details>
+</div>
+{% endblock %}

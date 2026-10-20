@@ -1,0 +1,176 @@
+{% extends 'casino/_layout.html' %}
+{% block controls %}
+<div><div class="lbl"><span>Chip value</span><span class="muted">tap the board to place</span></div>
+    <div class="chip-picker" id="chips">
+        <button type="button" data-c="10" style="background:#ffffff">10</button>
+        <button type="button" data-c="50" style="background:#006600" class="active">50</button>
+        <button type="button" data-c="100" style="background:#bb0000">100</button>
+        <button type="button" data-c="500" style="background:#006600">500</button>
+        <button type="button" data-c="1000" style="background:#111827">1K</button>
+    </div>
+</div>
+<div class="stat-pair">
+    <div><div class="k">Total bet</div><div class="v" id="totalBet">0.00</div></div>
+    <div><div class="k">Chips</div><div class="v" id="chipCount">0</div></div>
+</div>
+<div style="display:flex;gap:8px">
+    <button class="btn btn-ghost btn-sm" style="flex:1" id="undoBtn" type="button">↶ Undo</button>
+    <button class="btn btn-ghost btn-sm" style="flex:1" id="doubleBtn" type="button">2× Double</button>
+    <button class="btn btn-ghost btn-sm" style="flex:1" id="clearBtn" type="button">✕ Clear</button>
+</div>
+<button class="play-btn" id="spinBtn">Spin</button>
+<label class="switch" style="font-size:12px;color:var(--muted)"><input type="checkbox" id="keepChips" checked><span class="track"></span>Keep chips for next spin</label>
+<style>.controls > div:first-child { display: none; }</style>
+{% endblock %}
+{% block stage %}
+<div class="roulette-top">
+    <div class="rwheel"><div class="ptr"></div><canvas id="rw"></canvas></div>
+    <div class="r-result">
+        <div class="num" id="rNum">✦</div>
+        <div class="r-history" id="rHist"></div>
+    </div>
+</div>
+<div class="board-wrap"><div class="board" id="board"></div></div>
+<div class="rules-note" style="color:var(--muted)">European single-zero · straight up 35:1 · dozens &amp; columns 2:1 · even-money 1:1</div>
+{% endblock %}
+{% block game_js %}
+{{ red|json_script:"redNums" }}
+<script>
+(function () {
+    const C = window.Casino, $ = C.$;
+    const RED = new Set(JSON.parse(document.getElementById("redNums").textContent));
+    const ORDER = [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26];
+    const colorOf = (n) => (n === 0 ? "green" : RED.has(n) ? "red" : "black");
+    let chipValue = 50, placed = [], lastPlaced = [], spinning = false;
+    const key = (b) => b.type + ":" + (b.value ?? "");
+
+    // ---------------- board
+    const board = $("#board");
+    const cells = {};
+    function addCell(type, value, label, cls, style) {
+        const el = document.createElement("div");
+        el.className = "cell " + cls; el.innerHTML = label; el.style.cssText = style;
+        el.addEventListener("click", () => place({ type, value }));
+        board.appendChild(el); cells[key({ type, value })] = el;
+    }
+    addCell("number", 0, "0", "green", "grid-column:1;grid-row:1/4");
+    for (let col = 0; col < 12; col++) for (let row = 0; row < 3; row++) {
+        const n = col * 3 + (3 - row);
+        addCell("number", n, n, colorOf(n), `grid-column:${col + 2};grid-row:${row + 1}`);
+    }
+    [3, 2, 1].forEach((c, row) => addCell("column", c, "2:1", "out", `grid-column:14;grid-row:${row + 1}`));
+    [1, 2, 3].forEach((d) => addCell("dozen", d, ["1st 12", "2nd 12", "3rd 12"][d - 1], "out", `grid-column:${(d - 1) * 4 + 2}/span 4;grid-row:4`));
+    [["low", "1–18"], ["even", "EVEN"], ["red", "◆"], ["black", "◆"], ["odd", "ODD"], ["high", "19–36"]].forEach(([t, l], i) =>
+        addCell(t, null, l, "out" + (t === "red" ? " red" : t === "black" ? " black" : ""), `grid-column:${i * 2 + 2}/span 2;grid-row:5`));
+
+    function paintChips() {
+        Object.values(cells).forEach((el) => el.querySelector(".chip-stack")?.remove());
+        const sums = {};
+        placed.forEach((b) => { sums[key(b)] = (sums[key(b)] || 0) + b.amount; });
+        Object.entries(sums).forEach(([k, v]) => {
+            const s = document.createElement("span"); s.className = "chip-stack";
+            s.textContent = v >= 1000 ? (v / 1000).toFixed(v % 1000 ? 1 : 0) + "K" : v;
+            cells[k].appendChild(s);
+        });
+        $("#totalBet").textContent = C.fmt(placed.reduce((a, b) => a + b.amount, 0));
+        $("#chipCount").textContent = placed.length;
+    }
+    function place(b) { if (spinning) return; placed.push({ ...b, amount: chipValue }); C.sound.click(); paintChips(); }
+    document.querySelectorAll("#chips button").forEach((b) => b.addEventListener("click", () => {
+        document.querySelectorAll("#chips button").forEach((x) => x.classList.remove("active"));
+        b.classList.add("active"); chipValue = +b.dataset.c;
+    }));
+    $("#undoBtn").addEventListener("click", () => { if (!spinning) { placed.pop(); paintChips(); } });
+    $("#clearBtn").addEventListener("click", () => { if (!spinning) { placed = []; paintChips(); } });
+    $("#doubleBtn").addEventListener("click", () => { if (!spinning) { placed = placed.concat(placed.map((b) => ({ ...b }))); paintChips(); } });
+
+    // ---------------- wheel
+    const cv = $("#rw"), ctx = cv.getContext("2d");
+    let wheelRot = 0, ballAng = -Math.PI / 2, ballR = 0.86, showBall = false;
+    const seg = (Math.PI * 2) / 37;
+    function draw() {
+        const dpr = Math.min(devicePixelRatio || 1, 2), S = cv.parentElement.clientWidth;
+        if (cv.width !== S * dpr || cv.height !== S * dpr) { cv.width = cv.height = S * dpr; cv.style.height = S + "px"; }
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        const r = S / 2;
+        ctx.clearRect(0, 0, S, S);
+        ctx.beginPath(); ctx.arc(r, r, r - 2, 0, Math.PI * 2);
+        const rim = ctx.createRadialGradient(r, r, r * .7, r, r, r); rim.addColorStop(0, "#2a2a2a"); rim.addColorStop(1, "#000000");
+        ctx.fillStyle = rim; ctx.fill();
+        ORDER.forEach((n, i) => {
+            const a0 = -Math.PI / 2 - seg / 2 + i * seg + wheelRot;
+            ctx.beginPath(); ctx.moveTo(r, r); ctx.arc(r, r, r * 0.8, a0, a0 + seg); ctx.closePath();
+            ctx.fillStyle = { green: "#006600", red: "#bb0000", black: "#111827" }[colorOf(n)]; ctx.fill();
+            ctx.strokeStyle = "rgba(255, 255, 255,.5)"; ctx.lineWidth = 1; ctx.stroke();
+            ctx.save(); ctx.translate(r, r); ctx.rotate(a0 + seg / 2);
+            ctx.fillStyle = "#fff"; ctx.font = `700 ${r * 0.075}px Outfit, sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            ctx.translate(r * 0.71, 0); ctx.rotate(Math.PI / 2); ctx.fillText(n, 0, 0); ctx.restore();
+        });
+        const hub = ctx.createRadialGradient(r * .9, r * .9, 2, r, r, r * .55);
+        hub.addColorStop(0, "#ffffff"); hub.addColorStop(.25, "#8a0000"); hub.addColorStop(1, "#000000");
+        ctx.beginPath(); ctx.arc(r, r, r * 0.55, 0, Math.PI * 2); ctx.fillStyle = hub; ctx.fill();
+        for (let k = 0; k < 4; k++) {   // turret spokes
+            ctx.save(); ctx.translate(r, r); ctx.rotate(wheelRot + k * Math.PI / 2);
+            ctx.fillStyle = "#ffffff"; ctx.fillRect(-2, -r * .45, 4, r * .9); ctx.restore();
+        }
+        if (showBall) {
+            const bx = r + Math.cos(ballAng) * r * ballR, by = r + Math.sin(ballAng) * r * ballR;
+            ctx.beginPath(); ctx.arc(bx, by, r * 0.045, 0, Math.PI * 2);
+            ctx.fillStyle = "#fff"; ctx.shadowColor = "#fff"; ctx.shadowBlur = 12; ctx.fill(); ctx.shadowBlur = 0;
+        }
+    }
+
+    function hist(n) {
+        const el = document.createElement("span");
+        el.textContent = n; el.className = "cell " + colorOf(n); el.style.cursor = "default";
+        $("#rHist").prepend(el);
+        while ($("#rHist").children.length > 12) $("#rHist").lastChild.remove();
+    }
+
+    async function spin() {
+        if (spinning) return;
+        if (!placed.length) { Luma.toast("Place some chips on the board first", "error"); return; }
+        spinning = true; $("#spinBtn").disabled = true;
+        Object.values(cells).forEach((c) => c.classList.remove("hit"));
+        $("#rNum").className = "num"; $("#rNum").textContent = "…";
+        try {
+            const data = await C.play("{% url 'casino:api_roulette' %}", {
+                chips: placed.map((b) => ({ type: b.type, value: b.value, amount: b.amount })) });
+            const n = data.bet.result.number, idx = ORDER.indexOf(n);
+            // wheel turns clockwise; pocket idx must end under the top pointer
+            const want = -idx * seg, from = wheelRot;
+            const target = want + Math.PI * 2 * Math.ceil((from + Math.PI * 4 - want) / (Math.PI * 2));
+            const ballFrom = Math.random() * Math.PI * 2, ballTo = -Math.PI / 2 - Math.PI * 2 * 6;
+            const t0 = performance.now(), dur = 4200;
+            showBall = true;
+            await new Promise((done) => {
+                let lastTick = 0;
+                const step = (t) => {
+                    const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+                    wheelRot = from + (target - from) * e;
+                    ballAng = ballFrom + (ballTo - ballFrom) * (1 - Math.pow(1 - k, 2.2));
+                    ballR = k < 0.65 ? 0.9 : 0.9 - (k - 0.65) / 0.35 * 0.2;
+                    if (t - lastTick > 60 + k * 240) { lastTick = t; C.sound.tick(); }
+                    draw(); k < 1 ? requestAnimationFrame(step) : done();
+                };
+                requestAnimationFrame(step);
+            });
+            wheelRot = target % (Math.PI * 2);
+            $("#rNum").textContent = n; $("#rNum").className = "num " + colorOf(n);
+            cells["number:" + n].classList.add("hit");
+            data.bet.result.winners.forEach((i) => { const b = data.bet.params.chips[i]; cells[key(b)]?.classList.add("hit"); });
+            hist(n);
+            C.settle(data.bet, data.balance, Number(data.bet.payout) > Number(data.bet.amount) ? $("#rNum") : null);
+            if (Number(data.bet.payout) > 0) Luma.toast(`${n} ${colorOf(n)} — returned ${C.fmt(data.bet.payout)} ${C.CUR}`, Number(data.bet.payout) > Number(data.bet.amount) ? "win" : "");
+            lastPlaced = placed;
+            if (!$("#keepChips").checked) placed = [];
+            paintChips();
+        } catch (e) { if (e.message !== "login") Luma.toast(e.message, "error"); }
+        finally { spinning = false; $("#spinBtn").disabled = false; }
+    }
+    $("#spinBtn").addEventListener("click", spin);
+    addEventListener("resize", draw);
+    paintChips(); draw();
+})();
+</script>
+{% endblock %}

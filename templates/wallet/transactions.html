@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block title %}Transactions{% endblock %}
+{% block content %}
+<h1 class="page-title">Transactions</h1>
+<p class="page-sub">Every coin in and out of your wallet.</p>
+<div class="chips">
+    <a href="?" class="chip {% if not kind %}active{% endif %}">All</a>
+    {% for value, label in kinds %}<a href="?kind={{ value }}" class="chip {% if kind == value %}active{% endif %}">{{ label }}</a>{% endfor %}
+</div>
+<div class="card card-pad" style="overflow-x:auto">
+    <table class="table">
+        <thead><tr><th>Date</th><th>Type</th><th>Details</th><th>Status</th><th class="num">Amount</th><th class="num">Balance</th></tr></thead>
+        <tbody>
+        {% for t in page %}
+            <tr>
+                <td class="muted">{{ t.created_at|date:"d M, H:i" }}</td>
+                <td>{{ t.get_kind_display }}</td>
+                <td class="muted">{{ t.note }} {% if t.reference %}<span class="mono">{{ t.reference }}</span>{% endif %}</td>
+                <td><span class="badge badge-{{ t.status }}">{{ t.status }}</span></td>
+                <td class="num {% if t.is_credit %}text-green{% else %}text-red{% endif %}">{% if t.is_credit %}+{% endif %}{{ t.amount|floatformat:2 }}</td>
+                <td class="num">{{ t.balance_after|floatformat:2 }}</td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="6" class="empty">No transactions yet.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% include '_pagination.html' %}
+{% endblock %}

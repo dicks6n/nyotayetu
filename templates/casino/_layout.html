@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}{{ game.name }}{% endblock %}
+{% block content %}
+<div class="bo-head" style="margin-bottom:12px">
+    <div>
+        <h1 class="page-title">{{ game.name }}</h1>
+        <p class="page-sub" style="margin:0">{{ game.blurb }}</p>
+    </div>
+    <div class="chips" style="margin:0">
+        <a class="chip" href="{% url 'casino:lobby' %}">← All games</a>
+        <a class="chip" href="{% url 'casino:fairness' %}">🔮 Provably fair</a>
+    </div>
+</div>
+<div class="casino-layout">
+    <aside class="card controls">
+        <div>
+            <div class="lbl"><span>Bet amount</span><span>{{ CURRENCY }}</span></div>
+            <div class="amount-row">
+                <input class="input" id="amount" inputmode="decimal" value="{{ cfg.MIN_BET|floatformat:2 }}" aria-label="Bet amount">
+                <button type="button" data-amt="half">½</button>
+                <button type="button" data-amt="double">2×</button>
+            </div>
+            <div class="chips" style="margin:8px 0 0">
+                <button type="button" class="chip" data-amt="50">50</button>
+                <button type="button" class="chip" data-amt="100">100</button>
+                <button type="button" class="chip" data-amt="500">500</button>
+                <button type="button" class="chip" data-amt="1000">1K</button>
+            </div>
+        </div>
+        {% block controls %}{% endblock %}
+        <div class="game-note">RTP {{ rtp }}% · max win {{ CURRENCY }} {{ cfg.MAX_WIN|floatformat:0 }} · <a href="{% url 'casino:fairness' %}">verify fairness</a></div>
+    </aside>
+    <section class="stage-col">
+        <div class="stage" id="stage">
+            <div class="recent-pills" id="recentPills"></div>
+            {% block stage %}{% endblock %}
+        </div>
+    </section>
+    <section class="feed-col">
+        <div class="card card-pad">
+            <div class="tabs" id="feedTabs" style="max-width:260px;margin:0 0 10px">
+                <div class="tab active" data-tab="all">Live bets</div>
+                <div class="tab" data-tab="mine">My bets</div>
+            </div>
+            <div class="table-wrap"><table class="table">
+                <thead><tr><th>Player</th><th>Time</th><th class="num">Bet</th><th class="num">Multiplier</th><th class="num">Payout</th></tr></thead>
+                <tbody id="feedBody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+            </table></div>
+        </div>
+    </section>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+window.CASINO = {
+    game: "{{ game.slug }}", minBet: {{ cfg.MIN_BET }}, maxBet: {{ cfg.MAX_BET }},
+    feedUrl: "{% url 'casino:api_feed' %}",
+};
+</script>
+<script src="{% static 'js/casino.js' %}"></script>
+{% block game_js %}{% endblock %}
+{% endblock %}

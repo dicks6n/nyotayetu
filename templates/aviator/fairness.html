@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% block title %}Provably Fair{% endblock %}
+{% block content %}
+<h1 class="page-title">Provably Fair</h1>
+<p class="page-sub">Every crash point is sealed before the round starts — and you can verify it.</p>
+<div class="grid grid-2" style="margin-bottom:16px">
+    <div class="card card-pad">
+        <div class="card-title">How it works</div>
+        <ol style="padding-left:18px;color:var(--muted);line-height:1.8;font-size:14px">
+            <li>Before betting opens, the server picks a random <b>server seed</b> and shows you <span class="mono">sha256(seed)</span>.</li>
+            <li>The crash point is computed from <span class="mono">HMAC_SHA256(seed, "{{ hmac_key }}")</span>.</li>
+            <li>With <span class="mono">r</span> = first 13 hex digits ÷ 2<sup>52</sup>: <span class="mono">crash = (1 − {{ house_edge }}%) ÷ (1 − r)</span>. Return to player is {{ rtp }}% for every strategy.</li>
+            <li>After the plane flies away, the seed is revealed. Hash it — it must match the hash you saw.</li>
+        </ol>
+    </div>
+    <div class="card card-pad">
+        <div class="card-title">Verify a round</div>
+        <div class="field"><label>Server seed</label><input class="input mono" id="vSeed" placeholder="Paste a revealed seed"></div>
+        <button class="btn btn-magic" id="vBtn">Verify ✨</button>
+        <div id="vOut" style="margin-top:12px;font-size:14px"></div>
+    </div>
+</div>
+<div class="card card-pad" style="overflow-x:auto">
+    <div class="card-title">Recent rounds</div>
+    <table class="table">
+        <thead><tr><th>Round</th><th>Crash</th><th>Hash</th><th>Seed (revealed)</th></tr></thead>
+        {% for r in rounds %}
+        <tr><td>#{{ r.sequence }}</td><td class="{% if r.is_high %}text-magenta{% endif %}"><b>{{ r.crash_point }}x</b></td>
+            <td class="mono muted">{{ r.seed_hash|truncatechars:20 }}</td>
+            <td class="mono"><a href="#" onclick="document.getElementById('vSeed').value='{{ r.server_seed }}';document.getElementById('vBtn').click();return false">{{ r.server_seed|truncatechars:24 }}</a></td></tr>
+        {% empty %}<tr><td colspan="4" class="empty">No completed rounds yet.</td></tr>{% endfor %}
+    </table>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+(function () {
+    const enc = new TextEncoder();
+    const hex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+    document.getElementById("vBtn").addEventListener("click", async () => {
+        const out = document.getElementById("vOut");
+        const seed = document.getElementById("vSeed").value.trim();
+        if (!seed || !crypto.subtle) { out.textContent = "Enter a seed (requires a secure context)."; return; }
+        const hash = hex(await crypto.subtle.digest("SHA-256", enc.encode(seed)));
+        const key = await crypto.subtle.importKey("raw", enc.encode(seed), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+        const h = hex(await crypto.subtle.sign("HMAC", key, enc.encode("{{ hmac_key }}")));
+        const r = parseInt(h.slice(0, 13), 16) / 2 ** 52;
+        const edge = {{ house_edge }} / 100;
+        const crash = Math.min(Math.max(1, Math.floor((1 - edge) / (1 - r) * 100) / 100), {{ max_multiplier }});
+        out.innerHTML = `Hash: <span class="mono">${hash}</span><br>Crash point: <b class="text-gold" style="font-size:20px">${crash.toFixed(2)}x</b>`;
+    });
+})();
+</script>
+{% endblock %}

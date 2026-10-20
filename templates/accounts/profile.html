@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% load humanize %}
+{% block title %}My Profile{% endblock %}
+{% block content %}
+<div class="hero-banner">
+    <div style="display:flex;align-items:center;gap:16px">
+        <span class="avatar" style="width:64px;height:64px;font-size:26px">{{ user.username|first|upper }}</span>
+        <div>
+            <h1 style="font-size:26px">{{ user.username }}</h1>
+            <div class="muted">+{{ user.profile.phone }} · member since {{ user.date_joined|date:"M Y" }}</div>
+        </div>
+        <div style="margin-left:auto;text-align:right">
+            <div class="muted" style="font-size:12px">Balance</div>
+            <div style="font-size:28px;font-weight:800" class="text-gold">{{ CURRENCY }} {{ balance|floatformat:2|intcomma }}</div>
+        </div>
+    </div>
+</div>
+<div class="grid grid-3" style="margin-bottom:16px">
+    <div class="card stat"><div class="v">{{ aviator.count|default:0 }}</div><div class="l">Aviator flights</div></div>
+    <div class="card stat"><div class="v text-green">{{ aviator.wins|default:0 }}</div><div class="l">Cash outs</div></div>
+    <div class="card stat"><div class="v text-magenta">{% if aviator.best %}{{ aviator.best|floatformat:2 }}x{% else %}—{% endif %}</div><div class="l">Best multiplier</div></div>
+    <div class="card stat"><div class="v {% if net >= 0 %}text-green{% else %}text-red{% endif %}">{{ net|floatformat:2|intcomma }}</div><div class="l">Aviator net ({{ CURRENCY }})</div></div>
+    <div class="card stat"><div class="v">{{ sports.count|default:0 }}</div><div class="l">Sports slips</div></div>
+    <div class="card stat"><div class="v text-green">{{ sports.won|default:0 }}</div><div class="l">Slips won</div></div>
+</div>
+<div class="grid grid-2">
+    <div class="card card-pad">
+        <div class="card-title">👥 Your referral link</div>
+        <div class="copy-box"><input class="input" readonly value="{{ referral_link }}" id="refLink"><button class="btn btn-magic" onclick="navigator.clipboard.writeText(document.getElementById('refLink').value);Luma.toast('Link copied ✨','success')">Copy</button></div>
+        <p class="muted" style="margin-top:10px;font-size:13px">Code: <b class="text-gold">{{ user.profile.referral_code }}</b></p>
+    </div>
+    <div class="card card-pad">
+        <div class="card-title">⚡ Quick actions</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <a class="btn btn-gold" href="{% url 'wallet:deposit' %}">Deposit</a>
+            <a class="btn btn-ghost" href="{% url 'wallet:withdraw' %}">Withdraw</a>
+            <a class="btn btn-ghost" href="{% url 'wallet:transactions' %}">Transactions</a>
+            <a class="btn btn-ghost" href="{% url 'sports:my_bets' %}">Sports bets</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

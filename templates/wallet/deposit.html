@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% block title %}Deposit{% endblock %}
+{% block content %}
+<div class="form-wrap">
+    <div class="card card-pad" style="padding:28px">
+        <div style="text-align:center;font-size:44px">💎</div>
+        <h1 class="page-title" style="text-align:center">Deposit</h1>
+        <p class="page-sub" style="text-align:center">Top up instantly via M-Pesa.</p>
+        <form method="post">{% csrf_token %}
+            {% include '_field.html' with field=form.phone %}
+            {% include '_field.html' with field=form.amount %}
+            <div class="chips">{% for a in quick_amounts %}<button type="button" class="chip" onclick="document.getElementById('id_amount').value={{ a }}">{{ a }}</button>{% endfor %}</div>
+            <input type="hidden" name="next" value="{{ request.GET.next }}">
+            <button class="btn btn-gold btn-block" style="padding:14px">Deposit now</button>
+        </form>
+        <p class="form-foot" style="font-size:12px">Demo mode: deposits are credited instantly without a real payment.</p>
+    </div>
+</div>
+{% endblock %}

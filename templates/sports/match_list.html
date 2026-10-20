@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Football{% endblock %}
+{% block content %}
+<div class="sports-layout">
+    <nav class="card league-nav fs-side">
+        {% if top_leagues %}
+        <div class="fs-side-title">⭐ Top leagues</div>
+        {% for l in top_leagues %}
+        <a href="?date={{ day|date:'Y-m-d' }}&league={{ l.id }}" class="{% if league_id == l.id|stringformat:'s' %}active{% endif %}"><span>{{ l.flag }} <small>{{ l.country }}:</small> {{ l.name }}</span><span>{{ l.n }}</span></a>
+        {% endfor %}
+        {% endif %}
+        <div class="fs-side-title">🌍 All competitions</div>
+        <a href="?date={{ day|date:'Y-m-d' }}" class="{% if not league_id and not virtual %}active{% endif %}"><span>⚽ Everything</span></a>
+        {% for l in leagues %}
+        <a href="?date={{ day|date:'Y-m-d' }}&league={{ l.id }}" class="{% if league_id == l.id|stringformat:'s' %}active{% endif %}"><span>{{ l.flag }} <small>{{ l.country }}:</small> {{ l.name }}</span><span>{{ l.n }}</span></a>
+        {% empty %}<p class="muted" style="padding:8px 10px;font-size:13px">No fixtures on this day.</p>{% endfor %}
+        <a href="?tab=virtual" class="{% if virtual %}active{% endif %}" style="margin-top:8px"><span>⚡ Virtual Ligi Kuu</span><span>{{ counts.virtual }}</span></a>
+    </nav>
+
+    <section>
+        {% if not virtual %}
+        <div class="fs-days" role="tablist" aria-label="Day">
+            {% for d in days %}
+            <a href="?date={{ d.date|date:'Y-m-d' }}&status={{ status }}{% if league_id %}&league={{ league_id }}{% endif %}" class="{% if d.date == day %}on{% endif %}">
+                <b>{{ d.label }}</b><span>{{ d.sub }}</span>{% if d.count %}<em>{{ d.count }}</em>{% endif %}</a>
+            {% endfor %}
+        </div>
+        <div class="fs-status">
+            {% for key, label in statuses %}
+            <a href="?date={{ day|date:'Y-m-d' }}&status={{ key }}{% if league_id %}&league={{ league_id }}{% endif %}" class="{% if status == key %}on{% endif %} {% if key == 'live' %}is-live{% endif %}">
+                {% if key == 'live' %}<span class="live-dot"></span>{% endif %}{{ label }} <span class="n" {% if key == 'live' %}data-count="live"{% endif %}>{% for k, v in status_counts.items %}{% if k == key %}{{ v }}{% endif %}{% endfor %}</span></a>
+            {% endfor %}
+            <a href="?tab=virtual" class="fs-virtual">⚡ Virtual <span class="n">{{ counts.virtual }}</span></a>
+            <form class="fs-search" method="get">
+                <input type="hidden" name="date" value="{{ day|date:'Y-m-d' }}"><input type="hidden" name="status" value="{{ status }}">
+                <input class="input" type="search" name="q" value="{{ q }}" placeholder="Tafuta timu / league…">
+            </form>
+        </div>
+        {% else %}
+        <div class="fs-status">
+            <a href="{% url 'sports:list' %}">← Football</a>
+            <a class="on fs-virtual">⚡ Virtual Ligi Kuu <span class="n">{{ counts.virtual }}</span></a>
+        </div>
+        <p class="muted" style="font-size:13px;margin:0 0 8px">⚡ Virtual matches are computer-simulated (not real football) — a new kick-off every few minutes.</p>
+        {% endif %}
+
+        <div id="matchList">
+            {% regroup matches by league as by_league %}
+            {% for group in by_league %}
+                <div class="league-head fs-league">
+                    <span class="fs-flag">{{ group.grouper.flag }}</span>
+                    <span><span class="fs-country">{{ group.grouper.country|upper }}{% if group.grouper.country %}:{% endif %}</span>
+                    <a href="?date={{ day|date:'Y-m-d' }}&league={{ group.grouper.id }}">{{ group.grouper.name }}</a></span>
+                    <span class="fs-count">{{ group.list|length }}</span>
+                </div>
+                <div class="mrow head"><span></span><span></span><span>1</span><span>X</span><span>2</span><span class="gap1"></span><span class="ou">Over 2.5</span><span class="ou">Under 2.5</span><span class="gap2"></span><span class="gg">GG</span><span class="gg">NG</span><span></span></div>
+                {% for m in group.list %}{% include 'sports/_match_row.html' with hide_date=True %}{% endfor %}
+            {% empty %}
+                <div class="card empty">
+                    {% if status == 'live' %}No matches in play right now. Check <a class="text-green" href="?status=scheduled">today's schedule</a> or <a class="text-green" href="?tab=virtual">⚡ Virtual</a>.
+                    {% else %}No fixtures for this day{% if league_id %} in this league{% endif %}.{% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    {% include 'sports/_betslip.html' %}
+</div>
+<button class="slip-fab betslip-toggle" id="slipToggle" type="button" style="border:none;color:#fff">🎫 Betslip <span class="count" id="slipToggleCount">0</span></button>
+{% endblock %}
+{% block extra_js %}
+<script>window.SPORTS = { liveUrl: "{% url 'sports:api_live' %}" };</script>
+<script src="{% static 'js/sports-live.js' %}"></script>
+<script src="{% static 'js/betslip.js' %}"></script>
+{% endblock %}

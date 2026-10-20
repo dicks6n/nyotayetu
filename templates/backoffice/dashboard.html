@@ -1,0 +1,150 @@
+{% extends 'base.html' %}
+{% load humanize %}
+{% block title %}Back office{% endblock %}
+{% block content %}
+<div class="bo-head">
+    <div>
+        <h1 class="page-title">Back office</h1>
+        <p class="page-sub" style="margin:0">House performance, players and risk — staff only.</p>
+    </div>
+    <div class="chips">
+        {% for key, label in periods %}<a href="?period={{ key }}" class="chip {% if period == key %}active{% endif %}">{{ label }}</a>{% endfor %}
+        <a href="{% url 'backoffice:players' %}" class="chip">🧑‍🚀 All players →</a>
+    </div>
+</div>
+
+<div class="kpis">
+    <div class="card kpi hero"><div class="l">Gross gaming revenue</div><div class="v {% if s.ggr < 0 %}text-red{% endif %}">{{ CURRENCY }} {{ s.ggr|floatformat:2|intcomma }}</div><div class="d">Hold {{ s.hold_pct|default:"—" }}% of {{ s.turnover|floatformat:0|intcomma }} staked</div></div>
+    <div class="card kpi"><div class="l">Net gaming revenue</div><div class="v">{{ s.ngr|floatformat:2|intcomma }}</div><div class="d">after {{ s.bonuses|floatformat:0|intcomma }} bonuses/cashback</div></div>
+    <div class="card kpi"><div class="l">Deposits</div><div class="v text-green">{{ s.deposits|floatformat:2|intcomma }}</div><div class="d">{{ s.depositors }} depositor{{ s.depositors|pluralize }}</div></div>
+    <div class="card kpi"><div class="l">Withdrawals</div><div class="v">{{ s.withdrawals|floatformat:2|intcomma }}</div><div class="d">{{ s.pending_withdrawals.n }} pending</div></div>
+    <div class="card kpi"><div class="l">Players active</div><div class="v">{{ s.players_active|intcomma }}</div><div class="d">{{ s.players_online }} online now (10 min)</div></div>
+    <div class="card kpi"><div class="l">Registered users</div><div class="v">{{ s.users_total|intcomma }}</div><div class="d">+{{ s.users_new }} new this period</div></div>
+    <div class="card kpi"><div class="l">Player funds held</div><div class="v text-gold">{{ s.player_funds|floatformat:2|intcomma }}</div><div class="d">sum of all wallet balances</div></div>
+    <div class="card kpi"><div class="l">Open sports liability</div><div class="v">{{ s.sports.open_liability|floatformat:2|intcomma }}</div><div class="d">max payout on {{ s.sports.open_bets }} open slip{{ s.sports.open_bets|pluralize }}</div></div>
+</div>
+
+<div class="bo-grid">
+    <div class="card card-pad">
+        <div class="card-title">Daily GGR <span class="sub">last 14 days · {{ CURRENCY }}</span></div>
+        <div class="legend"><span><i style="background:var(--violet)"></i>House won</span><span><i style="background:var(--orange)"></i>House lost</span></div>
+        {% include 'backoffice/_chart.html' with chart=ggr_chart money=True label="Daily gross gaming revenue" %}
+        <div class="card-title" style="margin-top:18px">Daily active players <span class="sub">Aviator</span></div>
+        {% include 'backoffice/_chart.html' with chart=players_chart single=True unit="players" label="Daily active players" %}
+        <details style="margin-top:12px"><summary class="muted" style="cursor:pointer;font-size:13px">Show data table</summary>
+            <div class="table-wrap"><table class="table" style="margin-top:8px">
+                <thead><tr><th>Day</th><th class="num">Aviator staked</th><th class="num">Aviator paid</th><th class="num">Casino GGR</th><th class="num">Sports GGR</th><th class="num">GGR</th><th class="num">Players</th><th class="num">New users</th></tr></thead>
+                {% for r in series reversed %}<tr><td>{{ r.date|date:"D d M" }}</td><td class="num">{{ r.turnover|floatformat:2|intcomma }}</td><td class="num">{{ r.payouts|floatformat:2|intcomma }}</td><td class="num">{{ r.casino_ggr|floatformat:2|intcomma }}</td><td class="num">{{ r.sports_ggr|floatformat:2|intcomma }}</td><td class="num {% if r.ggr < 0 %}text-red{% endif %}"><b>{{ r.ggr|floatformat:2|intcomma }}</b></td><td class="num">{{ r.players }}</td><td class="num">{{ r.new_users }}</td></tr>{% endfor %}
+            </table></div>
+        </details>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:16px">
+        <div class="card card-pad">
+            <div class="card-title">✈️ Aviator</div>
+            <div class="split-row"><span class="muted">Staked</span><b>{{ s.aviator.turnover|floatformat:2|intcomma }}</b></div>
+            <div class="split-row"><span class="muted">Paid out</span><b>{{ s.aviator.payouts|floatformat:2|intcomma }}</b></div>
+            <div class="split-row"><span class="muted">GGR</span><b class="{% if s.aviator.ggr >= 0 %}text-green{% else %}text-red{% endif %}">{{ s.aviator.ggr|floatformat:2|intcomma }}</b></div>
+            <div class="split-row"><span class="muted">Actual hold / target</span><b>{{ s.aviator.hold_pct|default:"—" }}% / {{ house_edge }}%</b></div>
+            <div class="split-row"><span class="muted">Bets · players</span><b>{{ s.aviator.bets|intcomma }} · {{ s.aviator.players }}</b></div>
+            <div class="split-row"><span class="muted">Player win rate</span><b>{{ s.aviator.win_rate|default:"—" }}%</b></div>
+            <div class="split-row"><span class="muted">Avg cash out</span><b>{% if s.aviator.avg_cashout %}{{ s.aviator.avg_cashout|floatformat:2 }}x{% else %}—{% endif %}</b></div>
+            <div class="split-row"><span class="muted">Rounds · instant busts</span><b>{{ s.rounds.count|intcomma }} · {{ s.rounds.instant_pct|default:"—" }}%</b></div>
+            <div class="split-row"><span class="muted">Highest crash</span><b>{% if s.rounds.high %}{{ s.rounds.high|floatformat:2 }}x{% else %}—{% endif %}</b></div>
+        </div>
+        <div class="card card-pad">
+            <div class="card-title">🎰 Casino <span class="sub">{{ s.casino.bets|intcomma }} bets · {{ s.casino.players }} players</span></div>
+            <div class="split-row"><span class="muted">Staked · paid</span><b>{{ s.casino.turnover|floatformat:2|intcomma }} · {{ s.casino.payouts|floatformat:2|intcomma }}</b></div>
+            <div class="split-row"><span class="muted">GGR · hold</span><b class="{% if s.casino.ggr >= 0 %}text-green{% else %}text-red{% endif %}">{{ s.casino.ggr|floatformat:2|intcomma }} · {{ s.casino.hold_pct|default:"—" }}%</b></div>
+            {% for g in s.casino.games %}
+            <div class="split-row"><span class="muted">{{ g.name }} <small>({{ g.bets|intcomma }})</small></span><b class="{% if g.ggr >= 0 %}text-green{% else %}text-red{% endif %}">{{ g.ggr|floatformat:2|intcomma }} · {{ g.hold_pct|default:"—" }}%</b></div>
+            {% endfor %}
+            {% if s.casino.in_play.n %}<div class="split-row"><span class="muted">Unfinished Mines/Blackjack</span><b>{{ s.casino.in_play.n }} · {{ s.casino.in_play.v|floatformat:2|intcomma }}</b></div>{% endif %}
+        </div>
+        <div class="card card-pad">
+            <div class="card-title">⚽ Sports</div>
+            <div class="split-row"><span class="muted">Stakes (all)</span><b>{{ s.sports.stakes|floatformat:2|intcomma }}</b></div>
+            <div class="split-row"><span class="muted">Settled stakes</span><b>{{ s.sports.settled_stakes|floatformat:2|intcomma }}</b></div>
+            <div class="split-row"><span class="muted">Paid out</span><b>{{ s.sports.payouts|floatformat:2|intcomma }}</b></div>
+            <div class="split-row"><span class="muted">GGR · hold</span><b class="{% if s.sports.ggr >= 0 %}text-green{% else %}text-red{% endif %}">{{ s.sports.ggr|floatformat:2|intcomma }} · {{ s.sports.hold_pct|default:"—" }}%</b></div>
+            <div class="split-row"><span class="muted">Slips · players</span><b>{{ s.sports.bets }} · {{ s.sports.players }}</b></div>
+        </div>
+    </div>
+</div>
+
+<div class="bo-grid-2">
+    <div class="card card-pad">
+        <div class="card-title">🔴 Live round #{{ live_round.sequence }} <span class="sub">{{ live_phase|title }} · crash point hidden until it happens</span></div>
+        <div class="table-wrap"><table class="table">
+            <thead><tr><th>Player</th><th class="num">Bet</th><th class="num">Auto</th><th class="num">Cashed</th><th class="num">Win</th></tr></thead>
+            {% for b in live_bets %}
+            <tr><td><a class="plink" href="{% url 'backoffice:player' b.user_id %}">{{ b.user.username }}</a></td><td class="num">{{ b.amount|floatformat:2|intcomma }}</td>
+                <td class="num muted">{% if b.auto_cashout %}{{ b.auto_cashout }}x{% endif %}</td>
+                <td class="num">{% if b.cashed_out_at %}<span class="xbadge">{{ b.cashed_out_at }}x</span>{% endif %}</td>
+                <td class="num {% if b.status == 'won' %}text-green{% endif %}">{% if b.status == 'won' %}{{ b.payout|floatformat:2|intcomma }}{% else %}<span class="badge badge-{{ b.status }}">{{ b.status }}</span>{% endif %}</td></tr>
+            {% empty %}<tr><td colspan="5" class="empty">No bets in this round yet.</td></tr>{% endfor %}
+        </table></div>
+    </div>
+    <div class="card card-pad">
+        <div class="card-title">💎 Biggest Aviator wins <span class="sub">7 days</span></div>
+        <table class="table">
+            {% for b in big_wins %}
+            <tr><td><a class="plink" href="{% url 'backoffice:player' b.user_id %}">{{ b.user.username }}</a></td><td class="muted">#{{ b.round.sequence }}</td><td class="num">{{ b.amount|floatformat:0|intcomma }}</td><td class="num"><span class="xbadge">{{ b.cashed_out_at }}x</span></td><td class="num text-green">{{ b.payout|floatformat:2|intcomma }}</td></tr>
+            {% empty %}<tr><td class="empty">No wins yet.</td></tr>{% endfor %}
+        </table>
+    </div>
+</div>
+
+<div class="bo-grid-2">
+    <div class="card card-pad">
+        <div class="card-title">👑 Most valuable players <span class="sub">house net, all time</span></div>
+        <table class="table">
+            <thead><tr><th>Player</th><th class="num">Deposited</th><th class="num">Staked</th><th class="num">House net</th></tr></thead>
+            {% for p in top_value %}
+            <tr><td><a class="plink" href="{% url 'backoffice:player' p.id %}">{{ p.username }}</a></td><td class="num">{{ p.deposits|floatformat:0|intcomma }}</td><td class="num">{{ p.staked|floatformat:0|intcomma }}</td><td class="num text-green"><b>{{ p.house_net|floatformat:2|intcomma }}</b></td></tr>
+            {% empty %}<tr><td colspan="4" class="empty">No data yet.</td></tr>{% endfor %}
+        </table>
+    </div>
+    <div class="card card-pad">
+        <div class="card-title">⚠️ Players beating the house <span class="sub">review for risk</span></div>
+        <table class="table">
+            <thead><tr><th>Player</th><th class="num">Deposited</th><th class="num">Staked</th><th class="num">House net</th></tr></thead>
+            {% for p in top_winners %}
+            <tr><td><a class="plink" href="{% url 'backoffice:player' p.id %}">{{ p.username }}</a></td><td class="num">{{ p.deposits|floatformat:0|intcomma }}</td><td class="num">{{ p.staked|floatformat:0|intcomma }}</td><td class="num text-red"><b>{{ p.house_net|floatformat:2|intcomma }}</b></td></tr>
+            {% empty %}<tr><td colspan="4" class="empty">Nobody is ahead of the house.</td></tr>{% endfor %}
+        </table>
+    </div>
+</div>
+
+<div class="bo-grid-2">
+    <div class="card card-pad">
+        <div class="card-title">⏳ Pending withdrawals <span class="sub">{{ CURRENCY }} {{ s.pending_withdrawals.v|floatformat:2|intcomma|cut:"-" }}</span></div>
+        <table class="table">
+            {% for t in pending_withdrawals %}
+            <tr><td><a class="plink" href="{% url 'backoffice:player' t.user_id %}">{{ t.user.username }}</a></td><td class="muted">{{ t.created_at|naturaltime }}</td><td class="muted">{{ t.note }}</td><td class="num"><b>{{ t.amount|floatformat:2|intcomma|cut:"-" }}</b></td></tr>
+            {% empty %}<tr><td class="empty">Nothing waiting. ✨</td></tr>{% endfor %}
+        </table>
+        <a class="btn btn-ghost btn-sm" style="margin-top:10px" href="{% url 'admin:wallet_transaction_changelist' %}?kind__exact=withdrawal&status__exact=pending">Approve in admin →</a>
+    </div>
+    <div class="card card-pad">
+        <div class="card-title">✨ Newest sign-ups</div>
+        <table class="table">
+            {% for u in recent_signups %}
+            <tr><td><a class="plink" href="{% url 'backoffice:player' u.id %}">{{ u.username }}</a></td><td class="muted">{% if u.profile.phone %}+{{ u.profile.phone }}{% endif %}</td><td class="num muted">{{ u.date_joined|naturaltime }}</td></tr>
+            {% endfor %}
+        </table>
+    </div>
+</div>
+<div class="chart-tip" id="chartTip"></div>
+{% endblock %}
+{% block extra_js %}
+<script>
+(function () {
+    const tip = document.getElementById("chartTip");
+    document.querySelectorAll(".chart g.col").forEach((g) => {
+        g.addEventListener("mousemove", (e) => { tip.textContent = g.dataset.tip; tip.style.display = "block"; tip.style.left = (e.clientX + 12) + "px"; tip.style.top = (e.clientY - 34) + "px"; });
+        g.addEventListener("mouseleave", () => { tip.style.display = "none"; });
+    });
+    setTimeout(() => location.reload(), 60000);  // keep the numbers fresh
+})();
+</script>
+{% endblock %}

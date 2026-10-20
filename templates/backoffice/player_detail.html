@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+{% load humanize %}
+{% block title %}{{ p.username }} · Player{% endblock %}
+{% block content %}
+<div class="hero-banner">
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+        <span class="avatar" style="width:64px;height:64px;font-size:26px">{{ p.username|first|upper }}</span>
+        <div>
+            <h1 style="font-size:26px">{{ p.username }} {% if not p.is_active %}<span class="badge badge-lost">disabled</span>{% endif %}</h1>
+            <div style="opacity:.85;font-size:14px">{% if p.profile.phone %}+{{ p.profile.phone }} · {% endif %}joined {{ p.date_joined|date:"d M Y" }} · last active {% if p.last_seen %}{{ p.last_seen|naturaltime }}{% else %}never{% endif %}</div>
+            <div style="opacity:.85;font-size:13px;margin-top:2px">Referral code <b>{{ p.profile.referral_code }}</b>{% if p.profile.referred_by %} · referred by <a class="plink" href="{% url 'backoffice:player' p.profile.referred_by_id %}">{{ p.profile.referred_by.username }}</a>{% endif %}</div>
+        </div>
+        <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
+            <a class="btn btn-ghost btn-sm" href="{% url 'backoffice:players' %}">← Players</a>
+            <a class="btn btn-ghost btn-sm" href="{% url 'admin:auth_user_change' p.id %}">Edit / disable in admin</a>
+        </div>
+    </div>
+</div>
+
+<div class="kpis">
+    <div class="card kpi hero"><div class="l">House net from player</div><div class="v {% if p.house_net < 0 %}text-red{% endif %}">{{ CURRENCY }} {{ p.house_net|floatformat:2|intcomma }}</div><div class="d">staked − paid back</div></div>
+    <div class="card kpi"><div class="l">Balance</div><div class="v text-gold">{{ p.wallet.balance|floatformat:2|intcomma }}</div></div>
+    <div class="card kpi"><div class="l">Deposited</div><div class="v text-green">{{ p.deposits|floatformat:2|intcomma }}</div></div>
+    <div class="card kpi"><div class="l">Withdrawn</div><div class="v">{{ p.withdrawn|floatformat:2|intcomma }}</div></div>
+    <div class="card kpi"><div class="l">Bonuses received</div><div class="v">{{ p.bonuses|floatformat:2|intcomma }}</div></div>
+</div>
+
+<div class="bo-grid-2">
+    <div class="card card-pad">
+        <div class="card-title">✈️ Aviator</div>
+        <div class="split-row"><span class="muted">Bets · cash outs</span><b>{{ stats.aviator.bets }} · {{ stats.aviator.wins }} ({{ stats.aviator.win_rate|default:"—" }}%)</b></div>
+        <div class="split-row"><span class="muted">Staked · won</span><b>{{ stats.aviator.staked|floatformat:2|intcomma }} · {{ stats.aviator.won|floatformat:2|intcomma }}</b></div>
+        <div class="split-row"><span class="muted">House net</span><b class="{% if stats.aviator.net >= 0 %}text-green{% else %}text-red{% endif %}">{{ stats.aviator.net|floatformat:2|intcomma }}</b></div>
+        <div class="split-row"><span class="muted">Avg bet · avg cash out</span><b>{{ stats.aviator.avg_bet|floatformat:2|default:"—" }} · {% if stats.aviator.avg_cashout %}{{ stats.aviator.avg_cashout|floatformat:2 }}x{% else %}—{% endif %}</b></div>
+        <div class="split-row"><span class="muted">Best multiplier · biggest win</span><b>{% if stats.aviator.best %}{{ stats.aviator.best|floatformat:2 }}x{% else %}—{% endif %} · {{ stats.aviator.biggest_win|floatformat:2|intcomma|default:"—" }}</b></div>
+    </div>
+    <div class="card card-pad">
+        <div class="card-title">⚽ Sports</div>
+        <div class="split-row"><span class="muted">Slips · won · open</span><b>{{ stats.sports.bets }} · {{ stats.sports.wins }} · {{ stats.sports.open }}</b></div>
+        <div class="split-row"><span class="muted">Staked · won</span><b>{{ stats.sports.staked|floatformat:2|intcomma }} · {{ stats.sports.won|floatformat:2|intcomma }}</b></div>
+        <div class="split-row"><span class="muted">House net</span><b class="{% if stats.sports.net >= 0 %}text-green{% else %}text-red{% endif %}">{{ stats.sports.net|floatformat:2|intcomma }}</b></div>
+        <div class="split-row"><span class="muted">Referrals</span><b>{{ referrals|length }}</b></div>
+    </div>
+    <div class="card card-pad">
+        <div class="card-title">🎰 Casino</div>
+        {% for g in stats.casino %}
+        <div class="split-row"><span class="muted">{{ g.name }} · {{ g.bets }} bets · best {{ g.best|floatformat:2 }}x</span><b class="{% if g.net >= 0 %}text-green{% else %}text-red{% endif %}">{{ g.net|floatformat:2|intcomma }}</b></div>
+        {% empty %}<div class="empty">No casino play.</div>{% endfor %}
+    </div>
+</div>
+<div class="card card-pad table-wrap" style="margin-bottom:16px">
+    <div class="card-title">Recent casino bets</div>
+    <table class="table">
+        <thead><tr><th>When</th><th>Game</th><th class="num">Bet</th><th class="num">Multiplier</th><th class="num">Payout</th><th>Seed / nonce</th></tr></thead>
+        {% for b in casino_bets %}
+        <tr><td class="muted">{{ b.created_at|date:"d M H:i" }}</td><td>{{ b.get_game_display }}</td><td class="num">{{ b.amount|floatformat:2|intcomma }}</td>
+            <td class="num"><span class="xbadge">{{ b.multiplier|floatformat:2 }}x</span></td>
+            <td class="num {% if b.payout > b.amount %}text-green{% endif %}">{% if b.status == 'active' %}<span class="badge badge-active">in play</span>{% else %}{{ b.payout|floatformat:2|intcomma }}{% endif %}</td>
+            <td class="mono muted">{{ b.seed_pair.server_seed_hash|truncatechars:12 }} #{{ b.nonce }}</td></tr>
+        {% empty %}<tr><td colspan="6" class="empty">No casino bets.</td></tr>{% endfor %}
+    </table>
+</div>
+
+<div class="bo-grid-2">
+    <div class="card card-pad table-wrap">
+        <div class="card-title">Recent Aviator bets</div>
+        <table class="table">
+            <thead><tr><th>When</th><th>Round</th><th class="num">Bet</th><th class="num">Crash</th><th class="num">Cashed</th><th class="num">Win</th></tr></thead>
+            {% for b in aviator_bets %}
+            <tr><td class="muted">{{ b.created_at|date:"d M H:i" }}</td><td class="muted">#{{ b.round.sequence }}</td><td class="num">{{ b.amount|floatformat:2|intcomma }}</td>
+                <td class="num muted">{{ b.round.crash_point }}x</td>
+                <td class="num">{% if b.cashed_out_at %}<span class="xbadge">{{ b.cashed_out_at }}x</span>{% endif %}</td>
+                <td class="num {% if b.status == 'won' %}text-green{% endif %}">{% if b.status == 'won' %}{{ b.payout|floatformat:2|intcomma }}{% else %}<span class="badge badge-{{ b.status }}">{{ b.status }}</span>{% endif %}</td></tr>
+            {% empty %}<tr><td colspan="6" class="empty">No Aviator bets.</td></tr>{% endfor %}
+        </table>
+    </div>
+    <div class="card card-pad table-wrap">
+        <div class="card-title">Wallet transactions</div>
+        <table class="table">
+            <thead><tr><th>When</th><th>Type</th><th>Status</th><th class="num">Amount</th><th class="num">Balance</th></tr></thead>
+            {% for t in transactions %}
+            <tr><td class="muted">{{ t.created_at|date:"d M H:i" }}</td><td>{{ t.get_kind_display }}</td><td><span class="badge badge-{{ t.status }}">{{ t.status }}</span></td>
+                <td class="num {% if t.is_credit %}text-green{% else %}text-red{% endif %}">{% if t.is_credit %}+{% endif %}{{ t.amount|floatformat:2|intcomma }}</td><td class="num">{{ t.balance_after|floatformat:2|intcomma }}</td></tr>
+            {% empty %}<tr><td colspan="5" class="empty">No transactions.</td></tr>{% endfor %}
+        </table>
+    </div>
+</div>
+
+<div class="card card-pad table-wrap">
+    <div class="card-title">Sports slips</div>
+    <table class="table">
+        <thead><tr><th>Slip</th><th>Placed</th><th>Picks</th><th class="num">Stake</th><th class="num">Odds</th><th class="num">Result</th></tr></thead>
+        {% for bet in sports_bets %}
+        <tr><td>{{ bet.code }}</td><td class="muted">{{ bet.created_at|date:"d M H:i" }}</td>
+            <td class="muted" style="font-size:12px">{% for s in bet.selections.all %}{{ s.match }} <b>{{ s.pick }}</b>{% if not forloop.last %} · {% endif %}{% endfor %}</td>
+            <td class="num">{{ bet.stake|floatformat:2|intcomma }}</td><td class="num">{{ bet.total_odds }}</td>
+            <td class="num"><span class="badge badge-{{ bet.status }}">{{ bet.status }}</span>{% if bet.status == 'won' %} <span class="text-green">{{ bet.payout|floatformat:2|intcomma }}</span>{% endif %}</td></tr>
+        {% empty %}<tr><td colspan="6" class="empty">No sports slips.</td></tr>{% endfor %}
+    </table>
+</div>
+{% endblock %}

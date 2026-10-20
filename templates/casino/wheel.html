@@ -1,0 +1,101 @@
+{% extends 'casino/_layout.html' %}
+{% block controls %}
+<div><div class="lbl"><span>Risk</span></div>
+    <div class="seg" id="riskSeg"><button data-v="low">low</button><button data-v="medium" class="active">medium</button><button data-v="high">high</button></div></div>
+<button class="play-btn" id="spinBtn">Spin the wheel</button>
+{% endblock %}
+{% block stage %}
+<div class="wheel-box">
+    <div class="wheel-pointer"></div>
+    <canvas id="wheel"></canvas>
+    <div class="wheel-center"><div><b id="centerVal">✦</b></div></div>
+</div>
+<div class="wheel-legend" id="legend"></div>
+{% endblock %}
+{% block game_js %}
+{{ tables|json_script:"wheelTables" }}
+<script>
+(function () {
+    const C = window.Casino, $ = C.$;
+    const TABLES = JSON.parse(document.getElementById("wheelTables").textContent);
+    const COLORS = { t0: "#1c1c1c", t1: "#ffffff", t2: "#00a046", t3: "#BB0000", t4: "#00e05a" };
+    const canvas = $("#wheel"), ctx = canvas.getContext("2d");
+    let risk = "medium", rot = 0, spinning = false, highlight = -1;
+    const segs = () => TABLES[risk];
+
+    function legend() {
+        const counts = {};
+        segs().forEach((m) => { counts[m] = (counts[m] || 0) + 1; });
+        $("#legend").innerHTML = Object.keys(counts).sort((a, b) => a - b).map((m) =>
+            `<span class="${C.tier(+m)}"><i></i>${(+m).toFixed(2)}x <small>${(counts[m] / segs().length * 100).toFixed(0)}%</small></span>`).join("");
+    }
+    function draw() {
+        const dpr = Math.min(devicePixelRatio || 1, 2), size = canvas.parentElement.clientWidth;
+        if (canvas.width !== size * dpr || canvas.height !== size * dpr) { canvas.width = canvas.height = size * dpr; canvas.style.height = size + "px"; }
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        const r = size / 2, list = segs(), seg = (Math.PI * 2) / list.length;
+        ctx.clearRect(0, 0, size, size);
+        // outer glow ring
+        ctx.beginPath(); ctx.arc(r, r, r - 2, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(255, 255, 255,.5)"; ctx.lineWidth = 3; ctx.shadowColor = "#e01e1e"; ctx.shadowBlur = 25; ctx.stroke(); ctx.shadowBlur = 0;
+        list.forEach((m, i) => {
+            const a0 = -Math.PI / 2 + i * seg + rot;
+            ctx.beginPath(); ctx.moveTo(r, r); ctx.arc(r, r, r - 8, a0, a0 + seg); ctx.closePath();
+            ctx.fillStyle = COLORS[C.tier(+m)];
+            ctx.globalAlpha = highlight === -1 || highlight === i ? 1 : 0.35;
+            ctx.fill(); ctx.globalAlpha = 1;
+            ctx.strokeStyle = "#050505"; ctx.lineWidth = 2; ctx.stroke();
+            // multiplier label
+            ctx.save(); ctx.translate(r, r); ctx.rotate(a0 + seg / 2);
+            ctx.fillStyle = ["t1", "t4"].includes(C.tier(+m)) ? "#000" : "#fff";
+            ctx.font = `800 ${Math.max(9, r * 0.075)}px Outfit, sans-serif`; ctx.textAlign = "right"; ctx.textBaseline = "middle";
+            ctx.fillText(+m ? (+m).toFixed(2) : "0", r - 18, 0);
+            ctx.restore();
+        });
+        // studs
+        for (let i = 0; i < list.length; i++) {
+            const a = -Math.PI / 2 + i * seg + rot;
+            ctx.beginPath(); ctx.fillStyle = "#ffffff";
+            ctx.arc(r + Math.cos(a) * (r - 8), r + Math.sin(a) * (r - 8), 3, 0, Math.PI * 2); ctx.fill();
+        }
+    }
+
+    async function spin() {
+        if (spinning) return;
+        spinning = true; $("#spinBtn").disabled = true; highlight = -1; $("#centerVal").textContent = "✦";
+        document.querySelectorAll("#riskSeg button").forEach((b) => { b.disabled = true; });
+        try {
+            const data = await C.play("{% url 'casino:api_wheel' %}", { amount: C.amount(), risk });
+            const n = segs().length, seg = (Math.PI * 2) / n, s = data.bet.result.segment;
+            const landing = -(s * seg + seg * (0.2 + Math.random() * 0.6));
+            const base = rot + Math.PI * 2 * 5;
+            const target = landing + Math.PI * 2 * Math.ceil((base - landing) / (Math.PI * 2));
+            const from = rot, t0 = performance.now(), dur = 3800;
+            let lastSeg = -1;
+            await new Promise((done) => {
+                const step = (t) => {
+                    const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 4);
+                    rot = from + (target - from) * e;
+                    const under = Math.floor((((-rot) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2) / seg);
+                    if (under !== lastSeg) { lastSeg = under; C.sound.tick(); }
+                    draw();
+                    k < 1 ? requestAnimationFrame(step) : done();
+                };
+                requestAnimationFrame(step);
+            });
+            highlight = s; draw();
+            $("#centerVal").textContent = (+data.bet.multiplier).toFixed(2) + "x";
+            C.settle(data.bet, data.balance, Number(data.bet.multiplier) >= 1 ? $("#centerVal") : null);
+        } catch (e) { if (e.message !== "login") Luma.toast(e.message, "error"); }
+        finally {
+            spinning = false; $("#spinBtn").disabled = false;
+            document.querySelectorAll("#riskSeg button").forEach((b) => { b.disabled = false; });
+        }
+    }
+    $("#spinBtn").addEventListener("click", spin);
+    C.segmented($("#riskSeg"), (v) => { risk = v; highlight = -1; legend(); draw(); });
+    addEventListener("resize", draw);
+    legend(); draw();
+})();
+</script>
+{% endblock %}

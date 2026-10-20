@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block title %}Withdraw{% endblock %}
+{% block content %}
+<div class="form-wrap">
+    <div class="card card-pad" style="padding:28px">
+        <div style="text-align:center;font-size:44px">🪄</div>
+        <h1 class="page-title" style="text-align:center">Withdraw</h1>
+        <p class="page-sub" style="text-align:center">Available: <b class="text-gold">{{ CURRENCY }} {{ balance|floatformat:2 }}</b></p>
+        <form method="post">{% csrf_token %}
+            {% include '_field.html' with field=form.phone %}
+            {% include '_field.html' with field=form.amount %}
+            <button class="btn btn-magic btn-block" style="padding:14px">Request withdrawal</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

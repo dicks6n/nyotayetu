@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block title %}Casino{% endblock %}
+{% block content %}
+<div class="hero-banner">
+    <h1 class="page-title" style="color:#fff;-webkit-text-fill-color:#fff">The Enchanted Casino</h1>
+    <p style="max-width:560px;opacity:.9">Instant games, settled in a blink. Every result comes from your own provably-fair seeds — {{ rtp }}% return to player.</p>
+</div>
+<div class="lobby-grid">
+    <a class="game-card featured" href="{% url 'core:home' %}">
+        <span class="gicon">✈️</span>
+        <span class="gtag">Live multiplayer</span>
+        <h3>Aviator</h3>
+        <p>Cash out before the plane flies away. The original crash game.</p>
+    </a>
+    {% for g in games %}
+    <a class="game-card" href="{% url g.url %}" style="--h:{{ g.hue }}">
+        <span class="gicon">{{ g.icon }}</span>
+        <span class="gtag">{{ g.tag }}</span>
+        <h3>{{ g.name }}</h3>
+        <p>{{ g.blurb }}</p>
+    </a>
+    {% endfor %}
+    <a class="game-card" href="{% url 'sports:list' %}" style="--h:0;--s:0%">
+        <span class="gicon">⚽</span>
+        <span class="gtag">Accumulators</span>
+        <h3>Sports</h3>
+        <p>Back your teams across top leagues and multiply your odds.</p>
+    </a>
+</div>
+{% endblock %}

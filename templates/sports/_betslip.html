@@ -1,0 +1,23 @@
+<aside class="card betslip" id="betslip" data-url="{% url 'sports:place_bet' %}">
+    <div class="card-title">🎫 Betslip <span class="badge badge-open" id="slipCount">0</span>
+        <span class="sub"><button class="btn btn-ghost btn-sm" id="clearSlip" type="button">Clear</button>
+        <button class="btn btn-ghost btn-sm betslip-toggle" id="slipClose" type="button" style="display:none">✕</button></span>
+    </div>
+    <div class="slip-notice" id="slipNotice"></div>
+    <div class="slip-items"></div>
+    <div class="field">
+        <label for="stake">Stake ({{ CURRENCY }})</label>
+        <input type="number" id="stake" class="input" value="100" min="10" step="10">
+    </div>
+    <div class="chips">
+        <button type="button" class="chip" data-stake="50">50</button>
+        <button type="button" class="chip" data-stake="100">100</button>
+        <button type="button" class="chip" data-stake="500">500</button>
+        <button type="button" class="chip" data-stake="1000">1,000</button>
+    </div>
+    <div class="slip-row"><span>Total odds</span><b id="totalOdds">—</b></div>
+    <div class="slip-row win"><span>Potential win</span><b id="potentialWin">0.00</b></div>
+    <label class="switch" style="font-size:12px;color:var(--muted);margin:8px 0"><input type="checkbox" id="acceptChanges"><span class="track"></span>Accept any odds changes</label>
+    <button class="btn btn-gold btn-block" id="placeBtn" style="padding:14px">{% if user.is_authenticated %}Bet sasa ✦ Place bet{% else %}Log in &amp; place bet{% endif %}</button>
+    {% if user.is_authenticated %}<a href="{% url 'sports:my_bets' %}" class="btn btn-ghost btn-block btn-sm" style="margin-top:8px">My bets</a>{% endif %}
+</aside>

@@ -1,0 +1,113 @@
+{% extends 'casino/_layout.html' %}
+{% block controls %}
+<div><div class="lbl"><span>Risk</span></div>
+    <div class="seg" id="riskSeg"><button data-v="low">low</button><button data-v="medium" class="active">medium</button><button data-v="high">high</button></div></div>
+<div><div class="lbl"><span>Rows</span></div>
+    <div class="seg" id="rowsSeg"><button data-v="8">8</button><button data-v="12" class="active">12</button><button data-v="16">16</button></div></div>
+<button class="play-btn" id="dropBtn">Drop orb</button>
+<button class="btn btn-ghost btn-block" id="drop10" type="button">✨ Drop 10 orbs</button>
+{% endblock %}
+{% block stage %}
+<div class="plinko-wrap" id="wrap">
+    <canvas id="board"></canvas>
+    <div class="plinko-bins" id="bins"></div>
+</div>
+{% endblock %}
+{% block game_js %}
+{{ tables|json_script:"plinkoTables" }}
+<script>
+(function () {
+    const C = window.Casino, $ = C.$;
+    const TABLES = JSON.parse(document.getElementById("plinkoTables").textContent);
+    const canvas = $("#board"), ctx = canvas.getContext("2d"), wrap = $("#wrap"), binsEl = $("#bins");
+    let rows = 12, risk = "medium", W = 0, H = 0, gap = 0, dpr = 1, inFlight = 0;
+    const balls = [], flashes = new Map();
+    const lockSegs = (on) => document.querySelectorAll("#riskSeg button, #rowsSeg button").forEach((b) => { b.disabled = on; });
+
+    function layout() {
+        dpr = Math.min(devicePixelRatio || 1, 2);
+        W = wrap.clientWidth; gap = W / (rows + 2); H = gap * (rows + 1);
+        canvas.width = W * dpr; canvas.height = H * dpr; canvas.style.width = W + "px"; canvas.style.height = H + "px";
+        binsEl.style.gridTemplateColumns = `repeat(${rows + 1}, 1fr)`;
+        binsEl.style.margin = `0 ${gap / 2}px`;
+        binsEl.innerHTML = TABLES[rows + "-" + risk].map((m) => `<div class="bin ${C.tier(+m)}">${C.xfmt(m)}</div>`).join("");
+    }
+    const pegX = (i, j) => W / 2 + (j - (i + 2) / 2) * gap;
+    const rowY = (i) => gap * 0.9 + i * gap;
+    const ballX = (i, rights) => W / 2 + (rights - (i + 1) / 2) * gap;
+
+    function draw(now) {
+        try { frame(now); } catch (e) { console.warn(e); }
+        requestAnimationFrame(draw);   // never let one bad frame stop the board
+    }
+    function frame(now) {
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, W, H);
+        for (let i = 0; i < rows; i++) {
+            for (let j = 0; j < i + 3; j++) {
+                const key = i + ":" + j, f = flashes.get(key) || 0;
+                const glow = Math.max(0, 1 - (now - f) / 300);
+                ctx.beginPath();
+                ctx.fillStyle = glow ? `rgba(255, 255, 255,${0.5 + glow / 2})` : "rgba(235, 235, 235,.75)";
+                ctx.shadowColor = glow ? "#ffffff" : "rgba(255, 255, 255,.6)"; ctx.shadowBlur = glow ? 16 : 6;
+                ctx.arc(pegX(i, j), rowY(i), Math.max(2.2, gap * 0.09) * (1 + glow * 0.5), 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        ctx.shadowBlur = 0;
+        const STEP = 110;
+        for (let b = balls.length - 1; b >= 0; b--) {
+            const ball = balls[b], t = Math.max(0, (now - ball.t0) / STEP);
+            const i = Math.floor(t), k = t - i;
+            if (i >= rows) {
+                balls.splice(b, 1);
+                land(ball);
+                continue;
+            }
+            const rightsBefore = ball.path.slice(0, i).reduce((a, c) => a + c, 0);
+            const x0 = i === 0 ? W / 2 : ballX(i - 1, rightsBefore), y0 = i === 0 ? rowY(0) - gap : rowY(i - 1);
+            const x1 = ballX(i, rightsBefore + ball.path[i]), y1 = rowY(i);
+            const x = x0 + (x1 - x0) * k, y = y0 + (y1 - y0) * k - Math.sin(k * Math.PI) * gap * 0.35;
+            if (i !== ball.lastRow) { ball.lastRow = i; if (i > 0) { flashes.set((i - 1) + ":" + (rightsBefore + 1), now); C.sound.tick(); } }
+            ball.trail.push([x, y]); if (ball.trail.length > 8) ball.trail.shift();
+            ball.trail.forEach(([tx, ty], n) => {
+                ctx.beginPath(); ctx.fillStyle = `hsla(${ball.hue},100%,70%,${n / 16})`;
+                ctx.arc(tx, ty, gap * 0.16 * (n / 8), 0, Math.PI * 2); ctx.fill();
+            });
+            const grad = ctx.createRadialGradient(x - 2, y - 2, 1, x, y, gap * 0.28);
+            grad.addColorStop(0, "#fff"); grad.addColorStop(0.4, `hsl(${ball.hue},100%,70%)`); grad.addColorStop(1, `hsl(${ball.hue},90%,40%)`);
+            ctx.beginPath(); ctx.fillStyle = grad; ctx.shadowColor = `hsl(${ball.hue},100%,60%)`; ctx.shadowBlur = 18;
+            ctx.arc(x, y, gap * 0.22, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+        }
+    }
+
+    function land(ball) {
+        const bin = binsEl.children[ball.slot];
+        if (bin) { bin.classList.add("hit"); setTimeout(() => bin.classList.remove("hit"), 250); }
+        C.settle(ball.bet, ball.balance, Number(ball.bet.multiplier) >= 1 ? bin : null);
+        if (--inFlight === 0) lockSegs(false);
+    }
+
+    async function drop() {
+        try {
+            const data = await C.play("{% url 'casino:api_plinko' %}", { amount: C.amount(), rows, risk });
+            inFlight++; lockSegs(true);
+            balls.push({ path: data.bet.result.path, slot: data.bet.result.slot, bet: data.bet, balance: data.balance,
+                         t0: performance.now(), hue: [0, 140, 0, 140][Math.floor(Math.random() * 4)], trail: [], lastRow: -1 });
+            return true;
+        } catch (e) { if (e.message !== "login") Luma.toast(e.message, "error"); return false; }
+    }
+    $("#dropBtn").addEventListener("click", drop);
+    $("#drop10").addEventListener("click", async (e) => {
+        const btn = e.currentTarget;
+        btn.disabled = true;
+        for (let n = 0; n < 10; n++) { if (!(await drop())) break; await new Promise((r) => setTimeout(r, 220)); }
+        btn.disabled = false;
+    });
+    C.segmented($("#riskSeg"), (v) => { risk = v; layout(); });
+    C.segmented($("#rowsSeg"), (v) => { rows = +v; layout(); });
+    addEventListener("resize", layout);
+    layout(); requestAnimationFrame(draw);
+})();
+</script>
+{% endblock %}

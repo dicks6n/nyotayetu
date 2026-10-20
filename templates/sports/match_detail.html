@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}{{ m.home_team }} vs {{ m.away_team }}{% endblock %}
+{% block content %}
+<div class="sports-layout" style="grid-template-columns:minmax(0,1fr) 320px">
+    <section>
+        <div class="chips"><a class="chip" href="{% url 'sports:list' %}?tab={% if m.source == 'virtual' %}virtual{% elif m.is_live %}live{% else %}upcoming{% endif %}">← Back to matches</a>
+            <span class="chip">{{ m.league.flag }} {{ m.league.name }}</span>{% if m.source == 'virtual' %}<span class="chip">⚡ VIRTUAL · simulated</span>{% endif %}</div>
+        <div class="scoreboard" data-match="{{ m.id }}" data-home="{{ m.home_team }}" data-away="{{ m.away_team }}" data-live="{{ m.is_live|yesno:'1,0' }}" id="board">
+            <canvas class="waving-flag"></canvas>
+            <div class="sb-inner">
+                <div class="team">{{ m.home_team }}</div>
+                <div class="score">
+                    <div class="nums"><span data-role="sh">{% if m.is_live or m.status == 'finished' %}{{ m.home_score|default:0 }}{% else %}-{% endif %}</span>:<span data-role="sa">{% if m.is_live or m.status == 'finished' %}{{ m.away_score|default:0 }}{% else %}-{% endif %}</span></div>
+                    <span class="clock {% if not m.is_live %}pre{% endif %}" data-role="clock">
+                        {% if m.is_live %}{% if m.period == 'HT' %}HALF TIME{% else %}{{ m.minute }}'{% endif %}{% elif m.status == 'finished' %}FULL TIME{% elif m.status == 'cancelled' %}CANCELLED{% else %}{{ m.kickoff|date:"D d M · H:i" }}{% endif %}</span>
+                </div>
+                <div class="team">{{ m.away_team }}</div>
+            </div>
+            <div class="timeline"><div class="bar"></div><div class="fill" data-role="fill" style="width:{% widthratio m.minute 90 100 %}%"></div><div data-role="events"></div></div>
+            <div class="meta"><span data-role="ht">{% if m.ht_home is not None %}HT {{ m.ht_home }}-{{ m.ht_away }}{% endif %}</span><span data-role="status">{% if m.is_suspended %}⛔ Suspended{% elif m.is_live %}🔴 In play · odds update live{% else %}{{ m.market_count }} markets{% endif %}</span></div>
+        </div>
+        <div id="markets" class="mrow-free" data-match="{{ m.id }}" data-home="{{ m.home_team }}" data-away="{{ m.away_team }}">
+            {% for group, mks in groups %}
+                <div class="market-group-title">{{ group }}</div>
+                {% for key, label, picks in mks %}
+                <details class="market" {% if forloop.parentloop.first or key == 'ou_2.5' %}open{% endif %} data-mkey="{{ key }}">
+                    <summary>{{ label }}</summary>
+                    <div class="picks">
+                        {% for pick, plabel, price in picks %}
+                        <button type="button" class="ob {% if not price %}locked{% endif %}" data-market="{{ key }}" data-pick="{{ pick }}" data-mlabel="{{ label }}" data-plabel="{{ plabel }}" {% if not price %}disabled{% endif %}>
+                            <span class="pl">{{ plabel }}</span><span class="pv">{{ price|default:"" }}</span></button>
+                        {% endfor %}
+                    </div>
+                </details>
+                {% endfor %}
+            {% endfor %}
+        </div>
+    </section>
+    {% include 'sports/_betslip.html' %}
+</div>
+<button class="slip-fab betslip-toggle" id="slipToggle" type="button" style="border:none;color:#fff">🎫 Betslip <span class="count" id="slipToggleCount">0</span></button>
+{% endblock %}
+{% block extra_js %}
+<script>window.SPORTS = { liveUrl: "{% url 'sports:api_live' %}", full: {{ m.id }} };</script>
+<script src="{% static 'js/sports-live.js' %}"></script>
+<script src="{% static 'js/betslip.js' %}"></script>
+{% endblock %}

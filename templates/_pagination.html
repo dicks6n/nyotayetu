@@ -1,0 +1,7 @@
+{% if page.has_other_pages %}
+<div class="pagination">
+    {% if page.has_previous %}<a class="btn btn-ghost btn-sm" href="?{% if status %}status={{ status }}&{% endif %}{% if kind %}kind={{ kind }}&{% endif %}page={{ page.previous_page_number }}">‹ Prev</a>{% endif %}
+    <span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+    {% if page.has_next %}<a class="btn btn-ghost btn-sm" href="?{% if status %}status={{ status }}&{% endif %}{% if kind %}kind={{ kind }}&{% endif %}page={{ page.next_page_number }}">Next ›</a>{% endif %}
+</div>
+{% endif %}

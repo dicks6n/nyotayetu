@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Casino fairness{% endblock %}
+{% block content %}
+<h1 class="page-title">Provably Fair Casino</h1>
+<p class="page-sub">Every casino result comes from your own seed pair. You can check any bet yourself.</p>
+<div class="grid grid-2" style="margin-bottom:16px">
+    <div class="card card-pad">
+        <div class="card-title">🔐 Active seed pair</div>
+        <div class="field"><label>Server seed (hashed — revealed when you rotate)</label><input class="input mono" readonly value="{{ active.server_seed_hash }}"></div>
+        <div class="field"><label>Client seed</label><input class="input mono" readonly value="{{ active.client_seed }}"></div>
+        <div class="field"><label>Next nonce (bets made with this pair)</label><input class="input mono" readonly value="{{ active.nonce }}"></div>
+        <form method="post">{% csrf_token %}
+            <div class="field"><label>New client seed (optional — choose your own randomness)</label><input class="input mono" name="client_seed" maxlength="64" placeholder="leave blank for random"></div>
+            <button class="btn btn-magic">Rotate seeds &amp; reveal current server seed</button>
+        </form>
+    </div>
+    <div class="card card-pad">
+        <div class="card-title">How it works</div>
+        <ol style="padding-left:18px;color:var(--muted);line-height:1.8;font-size:14px">
+            <li>Before you bet, we commit to a secret <b>server seed</b> by showing its SHA-256 hash.</li>
+            <li>You control the <b>client seed</b>. Each bet uses a new <b>nonce</b> (0, 1, 2…).</li>
+            <li>Random numbers = <span class="mono">HMAC_SHA256(server_seed, "client_seed:nonce:cursor")</span>, 4 bytes per number in [0, 1).</li>
+            <li>Dice roll = ⌊n₀×10000⌋/100 · Wheel segment = ⌊n₀×20⌋ · Plinko: nᵢ ≥ 0.5 bounces right · Mines: Fisher–Yates shuffle · Roulette = ⌊n₀×37⌋ · Cards = ⌊nᵢ×52⌋.</li>
+            <li>Rotate seeds to reveal the old server seed, then verify any past bet below.</li>
+        </ol>
+        <p class="muted" style="font-size:13px">Payouts include a {{ edge }}% house edge on Dice/Mines/Plinko/Wheel; table games use standard casino rules.</p>
+    </div>
+</div>
+<div class="card card-pad" style="margin-bottom:16px">
+    <div class="card-title">🧪 Verify a bet</div>
+    <div class="grid grid-3">
+        <div class="field"><label>Server seed (revealed)</label><input class="input mono" id="vServer"></div>
+        <div class="field"><label>Client seed</label><input class="input mono" id="vClient"></div>
+        <div class="field"><label>Nonce</label><input class="input mono" id="vNonce" type="number" value="0" min="0"></div>
+    </div>
+    <button class="btn btn-gold" id="vBtn">Verify ✨</button>
+    <div id="vOut" style="margin-top:14px;font-size:14px;line-height:1.8"></div>
+</div>
+<div class="card card-pad table-wrap">
+    <div class="card-title">Revealed seed pairs</div>
+    <table class="table">
+        <thead><tr><th>Server seed</th><th>Client seed</th><th class="num">Bets</th><th>Revealed</th></tr></thead>
+        {% for p in revealed %}
+        <tr><td class="mono"><a href="#" class="text-magenta" data-s="{{ p.server_seed }}" data-c="{{ p.client_seed }}">{{ p.server_seed|truncatechars:28 }}</a></td><td class="mono">{{ p.client_seed }}</td><td class="num">{{ p.nonce }}</td><td class="muted">{{ p.revealed_at|date:"d M H:i" }}</td></tr>
+        {% empty %}<tr><td colspan="4" class="empty">Rotate your seeds to reveal one.</td></tr>{% endfor %}
+    </table>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script src="{% static 'js/casino-fair.js' %}"></script>
+<script>
+(function () {
+    const SUITS = ["♠", "♥", "♦", "♣"], RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+    const card = (f) => { const c = Math.floor(f * 52); return RANKS[c % 13] + SUITS[Math.floor(c / 13)]; };
+    document.querySelectorAll("[data-s]").forEach((a) => a.addEventListener("click", (e) => {
+        e.preventDefault(); vServer.value = a.dataset.s; vClient.value = a.dataset.c; vNonce.focus();
+    }));
+    document.getElementById("vBtn").addEventListener("click", async () => {
+        const out = document.getElementById("vOut");
+        if (!crypto.subtle) { out.textContent = "Verification needs a secure (https) page."; return; }
+        const s = vServer.value.trim(), c = vClient.value.trim(), n = parseInt(vNonce.value, 10) || 0;
+        if (!s || !c) { out.textContent = "Enter the server seed and client seed."; return; }
+        const f = await CasinoFair.floats(s, c, n, 24);
+        // Mines: Fisher–Yates over 25 tiles (shown for 3 mines; first k entries for k mines)
+        const tiles = [...Array(25).keys()];
+        for (let i = 0; i < 24; i++) { const j = i + Math.floor(f[i] * (25 - i)); [tiles[i], tiles[j]] = [tiles[j], tiles[i]]; }
+        out.innerHTML = `
+            <div>Server seed hash: <span class="mono">${await CasinoFair.sha256(s)}</span></div>
+            <div>🎲 Dice roll: <b class="text-gold">${(Math.floor(f[0] * 10000) / 100).toFixed(2)}</b></div>
+            <div>🎡 Wheel segment: <b class="text-gold">#${Math.floor(f[0] * 20) + 1}</b> of 20</div>
+            <div>🎯 Roulette number: <b class="text-gold">${Math.floor(f[0] * 37)}</b></div>
+            <div>💎 Mines order (first <i>k</i> = mine tiles, numbered 1–25): <span class="mono">${tiles.map((t) => t + 1).join(", ")}</span></div>
+            <div>🔮 Plinko path (16 rows, R = right): <span class="mono">${f.slice(0, 16).map((x) => (x >= 0.5 ? "R" : "L")).join(" ")}</span></div>
+            <div>🃏 Cards in order (Baccarat / Blackjack): <span class="mono">${f.slice(0, 12).map(card).join(" ")}</span></div>`;
+    });
+})();
+</script>
+{% endblock %}

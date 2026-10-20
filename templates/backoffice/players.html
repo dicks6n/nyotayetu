@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% load humanize %}
+{% block title %}Players{% endblock %}
+{% block content %}
+<div class="bo-head">
+    <div>
+        <h1 class="page-title">Players</h1>
+        <p class="page-sub" style="margin:0">{{ page.paginator.count|intcomma }} account{{ page.paginator.count|pluralize }} · house net = staked − paid back (positive means the house is ahead)</p>
+    </div>
+    <a href="{% url 'backoffice:dashboard' %}" class="chip">← Dashboard</a>
+</div>
+<form class="search" method="get">
+    <input class="input" type="search" name="q" value="{{ q }}" placeholder="Search username, phone or email…">
+    <input type="hidden" name="sort" value="{{ sort }}">
+    <label class="switch" style="white-space:nowrap;font-size:13px;color:var(--muted)"><input type="checkbox" name="active" value="1" {% if active %}checked{% endif %} onchange="this.form.submit()"><span class="track"></span>Active 7d</label>
+    <button class="btn btn-magic">Search</button>
+</form>
+<div class="chips">
+    {% for key, label in sorts %}<a class="chip {% if sort == key %}active{% endif %}" href="?sort={{ key }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if active %}&active=1{% endif %}">{{ label }}</a>{% endfor %}
+</div>
+<div class="card card-pad table-wrap">
+    <table class="table">
+        <thead><tr><th>Player</th><th>Phone</th><th>Joined</th><th>Last active</th><th class="num">Balance</th><th class="num">Deposited</th><th class="num">Withdrawn</th><th class="num">Staked</th><th class="num">House net</th></tr></thead>
+        {% for p in page %}
+        <tr>
+            <td><a class="plink" href="{% url 'backoffice:player' p.id %}">{{ p.username }}</a>{% if p.is_staff %} <span class="badge badge-void">staff</span>{% endif %}</td>
+            <td class="muted">{% if p.profile.phone %}+{{ p.profile.phone }}{% endif %}</td>
+            <td class="muted">{{ p.date_joined|date:"d M Y" }}</td>
+            <td class="muted">{% if p.last_seen %}{{ p.last_seen|naturaltime }}{% else %}—{% endif %}</td>
+            <td class="num text-gold">{{ p.wallet.balance|floatformat:2|intcomma }}</td>
+            <td class="num">{{ p.deposits|floatformat:2|intcomma }}</td>
+            <td class="num">{{ p.withdrawn|floatformat:2|intcomma }}</td>
+            <td class="num">{{ p.staked|floatformat:2|intcomma }}</td>
+            <td class="num {% if p.house_net > 0 %}text-green{% elif p.house_net < 0 %}text-red{% endif %}"><b>{{ p.house_net|floatformat:2|intcomma }}</b></td>
+        </tr>
+        {% empty %}<tr><td colspan="9" class="empty">No players found.</td></tr>{% endfor %}
+    </table>
+</div>
+{% if page.has_other_pages %}
+<div class="pagination">
+    {% if page.has_previous %}<a class="btn btn-ghost btn-sm" href="?sort={{ sort }}&q={{ q|urlencode }}{% if active %}&active=1{% endif %}&page={{ page.previous_page_number }}">‹ Prev</a>{% endif %}
+    <span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+    {% if page.has_next %}<a class="btn btn-ghost btn-sm" href="?sort={{ sort }}&q={{ q|urlencode }}{% if active %}&active=1{% endif %}&page={{ page.next_page_number }}">Next ›</a>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

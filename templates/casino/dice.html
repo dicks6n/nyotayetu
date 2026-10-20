@@ -1,0 +1,96 @@
+{% extends 'casino/_layout.html' %}
+{% block controls %}
+<div class="stat-pair">
+    <div><div class="k">Payout on win</div><div class="v text-green" id="profit">0.00</div></div>
+    <div><div class="k">Multiplier</div><div class="v" id="multOut">2.00x</div></div>
+</div>
+<button class="play-btn" id="rollBtn">Roll dice</button>
+<div class="game-note">Tip: press <b>Space</b> to roll</div>
+{% endblock %}
+{% block stage %}
+<div class="dice-result" id="result">50.00</div>
+<div class="dice-track" id="track">
+    <div class="fill" id="fill"></div>
+    <div class="dice-marker" id="marker"><span id="markerVal">0</span></div>
+    <input type="range" id="slider" min="2" max="98" step="0.01" value="50.5" aria-label="Target">
+</div>
+<div class="dice-scale"><span>0</span><span>25</span><span>50</span><span>75</span><span>100</span></div>
+<div class="dice-inputs">
+    <div><label>Multiplier</label><input class="input" id="multIn" inputmode="decimal"></div>
+    <div><label id="dirLbl">Roll over</label><button type="button" class="input" id="dirBtn" title="Switch over / under">50.50 ⇅</button></div>
+    <div><label>Win chance %</label><input class="input" id="chanceIn" inputmode="decimal"></div>
+</div>
+{% endblock %}
+{% block game_js %}
+<script>
+(function () {
+    const C = window.Casino, $ = C.$;
+    const EDGE = {{ cfg.HOUSE_EDGE_PERCENT }} / 100, MIN_C = {{ min_chance }}, MAX_C = {{ max_chance }};
+    let target = 50.5, over = true, busy = false;
+
+    const chance = () => +(over ? 99.99 - target : target).toFixed(2);
+    const mult = () => Math.floor((1 - EDGE) * 100 / chance() * 10000) / 10000;
+    function clampTarget(t) {
+        const lo = over ? 99.99 - MAX_C : MIN_C, hi = over ? 99.99 - MIN_C : MAX_C;
+        return +Math.min(hi, Math.max(lo, t)).toFixed(2);
+    }
+    function paint(skipInputs) {
+        const s = $("#slider");
+        s.value = target;
+        const g = "#00a046", r = "#e01e1e", p = target + "%";
+        $("#fill").style.background = over
+            ? `linear-gradient(90deg, ${r} ${p}, ${g} ${p})` : `linear-gradient(90deg, ${g} ${p}, ${r} ${p})`;
+        $("#fill").style.boxShadow = "0 0 20px rgba(0, 160, 70,.4)";
+        $("#dirLbl").textContent = over ? "Roll over" : "Roll under";
+        $("#dirBtn").textContent = target.toFixed(2) + " ⇅";
+        if (!skipInputs) { $("#multIn").value = mult().toFixed(4); $("#chanceIn").value = chance().toFixed(2); }
+        $("#multOut").textContent = mult().toFixed(4) + "x";
+        $("#profit").textContent = C.fmt(C.amount() * mult());
+    }
+    $("#slider").addEventListener("input", (e) => { target = clampTarget(+e.target.value); C.sound.tick(); paint(); });
+    $("#dirBtn").addEventListener("click", () => { target = +(99.99 - target).toFixed(2); over = !over; target = clampTarget(target); C.sound.click(); paint(); });
+    $("#chanceIn").addEventListener("change", (e) => {
+        const c = Math.min(MAX_C, Math.max(MIN_C, parseFloat(e.target.value) || 50));
+        target = clampTarget(over ? 99.99 - c : c); paint();
+    });
+    $("#multIn").addEventListener("change", (e) => {
+        const m = Math.max(1.01, parseFloat(e.target.value) || 2);
+        const c = Math.min(MAX_C, Math.max(MIN_C, (1 - EDGE) * 100 / m));
+        target = clampTarget(over ? 99.99 - c : c); paint();
+    });
+    $("#amount").addEventListener("input", () => paint(true));
+
+    async function roll() {
+        if (busy) return;
+        busy = true; $("#rollBtn").disabled = true; C.sound.click();
+        const res = $("#result"), marker = $("#marker");
+        res.classList.remove("win", "lose");
+        try {
+            const data = await C.play("{% url 'casino:api_dice' %}", { amount: C.amount(), target, over });
+            const roll = Number(data.bet.result.roll), won = data.bet.result.won;
+            // spin numbers then land
+            const t0 = performance.now();
+            await new Promise((done) => {
+                const step = (t) => {
+                    const k = Math.min(1, (t - t0) / 450);
+                    res.textContent = k < 1 ? (Math.random() * 100).toFixed(2) : roll.toFixed(2);
+                    if (k < 1) { if (Math.random() < .4) C.sound.tick(); requestAnimationFrame(step); } else done();
+                };
+                requestAnimationFrame(step);
+            });
+            res.classList.add(won ? "win" : "lose");
+            marker.className = "dice-marker " + (won ? "win" : "lose");
+            marker.style.opacity = 1; marker.style.left = roll + "%";
+            $("#markerVal").textContent = roll.toFixed(2);
+            C.settle(data.bet, data.balance, won ? res : null);
+        } catch (e) { if (e.message !== "login") Luma.toast(e.message, "error"); }
+        finally { busy = false; $("#rollBtn").disabled = false; }
+    }
+    $("#rollBtn").addEventListener("click", roll);
+    document.addEventListener("keydown", (e) => {
+        if (e.code === "Space" && !["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)) { e.preventDefault(); roll(); }
+    });
+    paint();
+})();
+</script>
+{% endblock %}

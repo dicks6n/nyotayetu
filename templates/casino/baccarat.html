@@ -1,0 +1,87 @@
+{% extends 'casino/_layout.html' %}
+{% block controls %}
+<div class="stat-pair">
+    <div><div class="k">Total bet</div><div class="v" id="totalBet">0.00</div></div>
+    <div><div class="k">Last result</div><div class="v" id="lastRes">—</div></div>
+</div>
+<div class="game-note" style="text-align:left">Set the bet amount above, then tap <b>Player</b>, <b>Banker</b> or <b>Tie</b> on the table to add chips.</div>
+<button class="btn btn-ghost btn-sm" id="clearBtn" type="button">✕ Clear bets</button>
+<button class="play-btn" id="dealBtn">Deal</button>
+{% endblock %}
+{% block stage %}
+<div class="felt" id="felt">
+    <div class="table-banner" id="banner"></div>
+    <div class="grid" style="grid-template-columns:1fr 1fr;gap:10px">
+        <div class="zone"><h4>Player</h4><div class="hand" id="pHand"></div><span class="total" id="pTotal">–</span></div>
+        <div class="zone"><h4>Banker</h4><div class="hand" id="bHand"></div><span class="total" id="bTotal">–</span></div>
+    </div>
+    <div class="bet-spots">
+        <div class="spot" data-spot="player"><b>PLAYER</b><small>pays 1:1</small></div>
+        <div class="spot" data-spot="tie"><b>TIE</b><small>pays 8:1</small></div>
+        <div class="spot" data-spot="banker"><b>BANKER</b><small>pays 0.95:1</small></div>
+    </div>
+    <div class="rules-note">Punto banco · standard third-card rules · tie pushes Player &amp; Banker bets</div>
+</div>
+{% endblock %}
+{% block game_js %}
+<script>
+(function () {
+    const C = window.Casino, $ = C.$;
+    let bets = { player: 0, banker: 0, tie: 0 }, busy = false;
+    const spots = {};
+    document.querySelectorAll(".spot").forEach((s) => {
+        spots[s.dataset.spot] = s;
+        s.addEventListener("click", () => { if (busy) return; bets[s.dataset.spot] += C.amount(); C.sound.click(); paint(); });
+    });
+    function paint() {
+        Object.entries(spots).forEach(([k, el]) => {
+            el.querySelector(".chip-stack")?.remove();
+            if (bets[k] > 0) { const c = document.createElement("span"); c.className = "chip-stack"; c.textContent = bets[k] >= 1000 ? (bets[k] / 1000).toFixed(1) + "K" : bets[k]; el.appendChild(c); }
+        });
+        $("#totalBet").textContent = C.fmt(bets.player + bets.banker + bets.tie);
+    }
+    $("#clearBtn").addEventListener("click", () => { if (!busy) { bets = { player: 0, banker: 0, tie: 0 }; paint(); } });
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const total = (cards) => cards.reduce((a, c) => a + Math.min(c % 13 + 1, 10) % 10, 0) % 10;
+
+    async function deal() {
+        if (busy) return;
+        if (!(bets.player + bets.banker + bets.tie)) { Luma.toast("Tap Player, Banker or Tie to place a bet", "error"); return; }
+        busy = true; $("#dealBtn").disabled = true;
+        const p = $("#pHand"), b = $("#bHand"), banner = $("#banner");
+        banner.classList.remove("show"); Object.values(spots).forEach((s) => s.classList.remove("win"));
+        $("#pTotal").className = $("#bTotal").className = "total";
+        p.innerHTML = b.innerHTML = ""; $("#pTotal").textContent = $("#bTotal").textContent = "–";
+        try {
+            const data = await C.play("{% url 'casino:api_baccarat' %}", { bets });
+            const r = data.bet.result;
+            // deal in real order: P, B, P, B, then third cards
+            const order = [[p, r.player[0]], [b, r.banker[0]], [p, r.player[1]], [b, r.banker[1]]];
+            if (r.player[2] !== undefined) order.push([p, r.player[2]]);
+            if (r.banker[2] !== undefined) order.push([b, r.banker[2]]);
+            const shown = { p: [], b: [] };
+            for (const [i, [el, c]] of order.entries()) {
+                el.insertAdjacentHTML("beforeend", Cards.html(c)); C.sound.click();
+                (el === p ? shown.p : shown.b).push(c);
+                if (shown.p.length >= 2) $("#pTotal").textContent = total(shown.p);
+                if (shown.b.length >= 2) $("#bTotal").textContent = total(shown.b);
+                await wait(i >= 3 ? 650 : 380);   // pause longer before third cards
+            }
+            const w = r.winner;
+            if (w !== "tie") {
+                $("#pTotal").classList.add(w === "player" ? "win" : "lose");
+                $("#bTotal").classList.add(w === "banker" ? "win" : "lose");
+            }
+            spots[w].classList.add("win");
+            banner.textContent = w === "tie" ? `TIE ${r.player_total}–${r.banker_total}` : `${w.toUpperCase()} WINS ${Math.max(r.player_total, r.banker_total)}–${Math.min(r.player_total, r.banker_total)}`;
+            banner.classList.add("show");
+            $("#lastRes").textContent = w[0].toUpperCase() + w.slice(1);
+            C.settle(data.bet, data.balance, Number(data.bet.payout) > Number(data.bet.amount) ? spots[w] : null);
+        } catch (e) { if (e.message !== "login") Luma.toast(e.message, "error"); }
+        finally { busy = false; $("#dealBtn").disabled = false; }
+    }
+    $("#dealBtn").addEventListener("click", deal);
+    paint();
+})();
+</script>
+{% endblock %}

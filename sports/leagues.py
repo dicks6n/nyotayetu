@@ -1,0 +1,106 @@
+"""
+Catalogue of common football competitions.
+
+`api_id` is API-Football's league id (check them in your API-Football dashboard; the feed only
+imports leagues listed here unless FOOTBALL_LEAGUES=all). `priority` orders the list like
+Flashscore's pinned leagues — Kenya first, then the big European competitions. `teams` are used
+only by the demo seeder for local development.
+"""
+
+LEAGUES = [
+    # --- Kenya & Africa
+    {"api_id": 276, "country": "Kenya", "flag": "🇰🇪", "name": "Premier League", "priority": 1,
+     "teams": ["Gor Mahia", "AFC Leopards", "Tusker", "Kakamega Homeboyz", "Shabana", "Police FC", "Bandari",
+               "KCB", "Ulinzi Stars", "Kariobangi Sharks", "Nairobi City Stars", "Posta Rangers"]},
+    {"api_id": 12, "country": "Africa", "flag": "🌍", "name": "CAF Champions League", "priority": 20,
+     "teams": ["Al Ahly", "Wydad Casablanca", "Mamelodi Sundowns", "Esperance Tunis", "Simba SC", "Young Africans",
+               "TP Mazembe", "Zamalek"]},
+    {"api_id": 6, "country": "Africa", "flag": "🌍", "name": "Africa Cup of Nations", "priority": 21,
+     "teams": ["Kenya", "Nigeria", "Senegal", "Morocco", "Egypt", "Ivory Coast", "Ghana", "Cameroon"]},
+    {"api_id": 233, "country": "Egypt", "flag": "🇪🇬", "name": "Premier League", "priority": 40,
+     "teams": ["Al Ahly", "Zamalek", "Pyramids", "Al Masry", "Ismaily", "Future FC"]},
+    {"api_id": 288, "country": "South Africa", "flag": "🇿🇦", "name": "Premiership", "priority": 41,
+     "teams": ["Mamelodi Sundowns", "Orlando Pirates", "Kaizer Chiefs", "SuperSport United", "Stellenbosch", "Cape Town City"]},
+    {"api_id": 200, "country": "Morocco", "flag": "🇲🇦", "name": "Botola Pro", "priority": 42,
+     "teams": ["Wydad Casablanca", "Raja Casablanca", "AS FAR", "RS Berkane", "FUS Rabat", "Maghreb Fes"]},
+    # --- Europe: big five + cups
+    {"api_id": 39, "country": "England", "flag": "🏴󠁧󠁢󠁥󠁮󠁧󠁿", "name": "Premier League", "priority": 2,
+     "teams": ["Arsenal", "Chelsea", "Liverpool", "Manchester United", "Manchester City", "Tottenham", "Newcastle",
+               "Aston Villa", "Brighton", "West Ham", "Everton", "Fulham"]},
+    {"api_id": 40, "country": "England", "flag": "🏴󠁧󠁢󠁥󠁮󠁧󠁿", "name": "Championship", "priority": 12,
+     "teams": ["Leeds", "Burnley", "Sunderland", "Norwich", "Middlesbrough", "Watford", "Coventry", "West Brom"]},
+    {"api_id": 45, "country": "England", "flag": "🏴󠁧󠁢󠁥󠁮󠁧󠁿", "name": "FA Cup", "priority": 13,
+     "teams": ["Arsenal", "Leeds", "Chelsea", "Sunderland", "Liverpool", "Burnley"]},
+    {"api_id": 2, "country": "Europe", "flag": "🇪🇺", "name": "UEFA Champions League", "priority": 3,
+     "teams": ["Real Madrid", "Manchester City", "Bayern Munich", "PSG", "Inter", "Arsenal", "Barcelona", "Dortmund"]},
+    {"api_id": 3, "country": "Europe", "flag": "🇪🇺", "name": "UEFA Europa League", "priority": 8,
+     "teams": ["Roma", "Tottenham", "Ajax", "Porto", "Lyon", "Galatasaray", "Rangers", "Real Sociedad"]},
+    {"api_id": 848, "country": "Europe", "flag": "🇪🇺", "name": "UEFA Conference League", "priority": 9,
+     "teams": ["Fiorentina", "Chelsea", "Betis", "Club Brugge", "Copenhagen", "Legia Warsaw"]},
+    {"api_id": 140, "country": "Spain", "flag": "🇪🇸", "name": "LaLiga", "priority": 4,
+     "teams": ["Real Madrid", "Barcelona", "Atletico Madrid", "Sevilla", "Real Sociedad", "Villarreal", "Real Betis",
+               "Valencia", "Athletic Club", "Girona"]},
+    {"api_id": 141, "country": "Spain", "flag": "🇪🇸", "name": "LaLiga 2", "priority": 30,
+     "teams": ["Granada", "Almeria", "Cadiz", "Sporting Gijon", "Racing Santander", "Zaragoza"]},
+    {"api_id": 135, "country": "Italy", "flag": "🇮🇹", "name": "Serie A", "priority": 5,
+     "teams": ["Inter", "AC Milan", "Juventus", "Napoli", "Roma", "Lazio", "Atalanta", "Fiorentina", "Bologna", "Torino"]},
+    {"api_id": 136, "country": "Italy", "flag": "🇮🇹", "name": "Serie B", "priority": 31,
+     "teams": ["Palermo", "Sampdoria", "Parma", "Cremonese", "Bari", "Spezia"]},
+    {"api_id": 78, "country": "Germany", "flag": "🇩🇪", "name": "Bundesliga", "priority": 6,
+     "teams": ["Bayern Munich", "Dortmund", "Leverkusen", "RB Leipzig", "Stuttgart", "Frankfurt", "Wolfsburg", "Freiburg"]},
+    {"api_id": 79, "country": "Germany", "flag": "🇩🇪", "name": "2. Bundesliga", "priority": 32,
+     "teams": ["Hamburg", "Schalke", "Hertha Berlin", "Hannover", "Kaiserslautern", "Nurnberg"]},
+    {"api_id": 61, "country": "France", "flag": "🇫🇷", "name": "Ligue 1", "priority": 7,
+     "teams": ["PSG", "Marseille", "Monaco", "Lyon", "Lille", "Nice", "Lens", "Rennes"]},
+    {"api_id": 88, "country": "Netherlands", "flag": "🇳🇱", "name": "Eredivisie", "priority": 14,
+     "teams": ["Ajax", "PSV", "Feyenoord", "AZ Alkmaar", "Twente", "Utrecht"]},
+    {"api_id": 94, "country": "Portugal", "flag": "🇵🇹", "name": "Primeira Liga", "priority": 15,
+     "teams": ["Benfica", "Porto", "Sporting CP", "Braga", "Vitoria Guimaraes", "Boavista"]},
+    {"api_id": 144, "country": "Belgium", "flag": "🇧🇪", "name": "Jupiler Pro League", "priority": 22,
+     "teams": ["Club Brugge", "Anderlecht", "Genk", "Union SG", "Antwerp", "Gent"]},
+    {"api_id": 179, "country": "Scotland", "flag": "🏴󠁧󠁢󠁳󠁣󠁴󠁿", "name": "Premiership", "priority": 23,
+     "teams": ["Celtic", "Rangers", "Hearts", "Aberdeen", "Hibernian", "Kilmarnock"]},
+    {"api_id": 203, "country": "Turkey", "flag": "🇹🇷", "name": "Süper Lig", "priority": 16,
+     "teams": ["Galatasaray", "Fenerbahce", "Besiktas", "Trabzonspor", "Basaksehir", "Kasimpasa"]},
+    {"api_id": 197, "country": "Greece", "flag": "🇬🇷", "name": "Super League", "priority": 33,
+     "teams": ["Olympiacos", "Panathinaikos", "AEK Athens", "PAOK", "Aris", "Asteras Tripolis"]},
+    {"api_id": 207, "country": "Switzerland", "flag": "🇨🇭", "name": "Super League", "priority": 34,
+     "teams": ["Young Boys", "Basel", "Servette", "Lugano", "Zurich", "St. Gallen"]},
+    {"api_id": 218, "country": "Austria", "flag": "🇦🇹", "name": "Bundesliga", "priority": 35,
+     "teams": ["Salzburg", "Sturm Graz", "Rapid Wien", "LASK", "Austria Wien", "Wolfsberger"]},
+    {"api_id": 119, "country": "Denmark", "flag": "🇩🇰", "name": "Superliga", "priority": 36,
+     "teams": ["Copenhagen", "Midtjylland", "Brondby", "Nordsjaelland", "Aarhus", "Silkeborg"]},
+    {"api_id": 113, "country": "Sweden", "flag": "🇸🇪", "name": "Allsvenskan", "priority": 37,
+     "teams": ["Malmo", "Djurgarden", "AIK", "Hammarby", "Elfsborg", "Hacken"]},
+    {"api_id": 103, "country": "Norway", "flag": "🇳🇴", "name": "Eliteserien", "priority": 38,
+     "teams": ["Bodo/Glimt", "Molde", "Brann", "Rosenborg", "Viking", "Lillestrom"]},
+    # --- Americas, Asia, internationals
+    {"api_id": 71, "country": "Brazil", "flag": "🇧🇷", "name": "Serie A", "priority": 17,
+     "teams": ["Flamengo", "Palmeiras", "Corinthians", "Sao Paulo", "Fluminense", "Botafogo", "Gremio", "Santos"]},
+    {"api_id": 128, "country": "Argentina", "flag": "🇦🇷", "name": "Liga Profesional", "priority": 18,
+     "teams": ["River Plate", "Boca Juniors", "Racing Club", "Independiente", "San Lorenzo", "Estudiantes"]},
+    {"api_id": 253, "country": "USA", "flag": "🇺🇸", "name": "MLS", "priority": 19,
+     "teams": ["Inter Miami", "LA Galaxy", "LAFC", "Seattle Sounders", "Atlanta United", "NY Red Bulls", "Columbus Crew", "Orlando City"]},
+    {"api_id": 262, "country": "Mexico", "flag": "🇲🇽", "name": "Liga MX", "priority": 24,
+     "teams": ["America", "Guadalajara", "Monterrey", "Tigres UANL", "Cruz Azul", "Pumas UNAM"]},
+    {"api_id": 13, "country": "South America", "flag": "🌎", "name": "Copa Libertadores", "priority": 25,
+     "teams": ["Flamengo", "River Plate", "Palmeiras", "Boca Juniors", "Fluminense", "Penarol"]},
+    {"api_id": 307, "country": "Saudi Arabia", "flag": "🇸🇦", "name": "Pro League", "priority": 11,
+     "teams": ["Al Hilal", "Al Nassr", "Al Ittihad", "Al Ahli", "Al Shabab", "Al Ettifaq"]},
+    {"api_id": 98, "country": "Japan", "flag": "🇯🇵", "name": "J1 League", "priority": 39,
+     "teams": ["Vissel Kobe", "Yokohama F. Marinos", "Kawasaki Frontale", "Urawa Reds", "Kashima Antlers", "Sanfrecce Hiroshima"]},
+    {"api_id": 188, "country": "Australia", "flag": "🇦🇺", "name": "A-League", "priority": 43,
+     "teams": ["Melbourne City", "Sydney FC", "Melbourne Victory", "Central Coast Mariners", "Western Sydney", "Adelaide United"]},
+    {"api_id": 1, "country": "World", "flag": "🌐", "name": "World Cup", "priority": 10,
+     "teams": ["Brazil", "Argentina", "France", "England", "Spain", "Germany", "Portugal", "Morocco"]},
+    {"api_id": 29, "country": "World", "flag": "🌐", "name": "World Cup Qualification Africa", "priority": 26,
+     "teams": ["Kenya", "Uganda", "Tanzania", "Nigeria", "Ghana", "Senegal", "Egypt", "Ivory Coast"]},
+    {"api_id": 10, "country": "World", "flag": "🌐", "name": "Friendlies", "priority": 44,
+     "teams": ["Kenya", "Rwanda", "Ethiopia", "Burundi", "South Sudan", "Uganda"]},
+]
+
+BY_API_ID = {lg["api_id"]: lg for lg in LEAGUES}
+
+
+def default_ids():
+    return [lg["api_id"] for lg in LEAGUES]

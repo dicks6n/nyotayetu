@@ -1,0 +1,117 @@
+{% extends 'casino/_layout.html' %}
+{% block controls %}
+<div>
+    <div class="lbl"><span>Mines</span><span id="gemsLbl">22 gems</span></div>
+    <select class="input" id="minesSel">
+        {% for n in "123456789"|make_list %}<option value="{{ n }}" {% if n == '3' %}selected{% endif %}>{{ n }}</option>{% endfor %}
+        <option>10</option><option>12</option><option>15</option><option>18</option><option>20</option><option>22</option><option>24</option>
+    </select>
+</div>
+<div class="stat-pair">
+    <div><div class="k">Current</div><div class="v" id="curMult">1.00x</div></div>
+    <div><div class="k">Next gem</div><div class="v text-gold" id="nextMult">—</div></div>
+</div>
+<button class="play-btn" id="mainBtn">Start game</button>
+<button class="btn btn-ghost btn-block" id="randomBtn" type="button" disabled>🎲 Pick random tile</button>
+{% endblock %}
+{% block stage %}
+<div class="mines-grid" id="grid"></div>
+<div class="mines-banner" id="banner"><div><b id="bannerMult">0x</b><span id="bannerWin"></span></div></div>
+{% endblock %}
+{% block game_js %}
+<script>
+(function () {
+    const C = window.Casino, $ = C.$;
+    const URLS = { start: "{% url 'casino:api_mines_start' %}", reveal: "{% url 'casino:api_mines_reveal' %}",
+                   cashout: "{% url 'casino:api_mines_cashout' %}", state: "{% url 'casino:api_mines_state' %}" };
+    const grid = $("#grid"), main = $("#mainBtn"), banner = $("#banner");
+    let bet = null, busy = false;
+    const tiles = [];
+    for (let i = 0; i < 25; i++) {
+        const b = document.createElement("button");
+        b.className = "tile"; b.type = "button"; b.setAttribute("aria-label", "Tile " + (i + 1));
+        b.addEventListener("click", () => reveal(i));
+        grid.appendChild(b); tiles.push(b);
+    }
+    $("#minesSel").addEventListener("change", (e) => { $("#gemsLbl").textContent = (25 - e.target.value) + " gems"; });
+
+    function render(final) {
+        const active = bet && bet.status === "active";
+        const revealed = bet ? bet.result.revealed : [];
+        const mines = (bet && bet.result.positions) || [];
+        tiles.forEach((t, i) => {
+            t.className = "tile"; t.textContent = "";
+            if (revealed.includes(i)) {
+                const isMine = mines.includes(i) || (bet.result.hit === i);
+                t.classList.add(isMine ? "mine" : "gem"); t.textContent = isMine ? "💥" : "💎";
+            } else if (final && mines.includes(i)) {
+                t.classList.add("mine", "ghost"); t.textContent = "💣";
+            } else if (final) {
+                t.classList.add("gem", "ghost"); t.textContent = "💎";
+            }
+            t.disabled = !active || revealed.includes(i);
+        });
+        $("#minesSel").disabled = active;
+        $("#randomBtn").disabled = !active;
+        $("#curMult").textContent = bet ? Number(bet.multiplier).toFixed(2) + "x" : "1.00x";
+        $("#nextMult").textContent = active && bet.next_multiplier ? Number(bet.next_multiplier).toFixed(2) + "x" : "—";
+        if (active && revealed.length) {
+            main.className = "play-btn cashout";
+            main.innerHTML = `Cash out<small>${C.fmt(Number(bet.amount) * Number(bet.multiplier))} ${C.CUR}</small>`;
+        } else if (active) {
+            main.className = "play-btn cashout"; main.disabled = true;
+            main.innerHTML = "Pick a tile<small>find your first gem</small>";
+            return;
+        } else {
+            main.className = "play-btn"; main.textContent = "Start game";
+        }
+        main.disabled = false;
+    }
+
+    async function call(url, body) {
+        if (busy) return null;
+        busy = true;
+        try { return await C.play(url, body); }
+        catch (e) { if (e.message !== "login") Luma.toast(e.message, "error"); return null; }
+        finally { busy = false; }
+    }
+
+    async function start() {
+        banner.classList.remove("show");
+        const data = await call(URLS.start, { amount: C.amount(), mines: +$("#minesSel").value });
+        if (!data) return;
+        bet = data.bet; Luma.setBalance(data.balance); C.sound.click(); render();
+    }
+    async function reveal(i) {
+        if (!bet || bet.status !== "active") return;
+        const data = await call(URLS.reveal, { tile: i });
+        if (!data) return;
+        bet = data.bet;
+        if (bet.status === "lost") { C.sound.boom(); render(true); C.settle(bet, data.balance); }
+        else if (bet.status === "won") { finish(data); }
+        else { C.sound.gem(); C.burstAt(tiles[i], 10); render(); }
+    }
+    async function cashout() {
+        const data = await call(URLS.cashout, {});
+        if (data) finish(data);
+    }
+    function finish(data) {
+        bet = data.bet; render(true);
+        $("#bannerMult").textContent = Number(bet.multiplier).toFixed(2) + "x";
+        $("#bannerWin").textContent = `+${C.fmt(bet.payout)} ${C.CUR}`;
+        banner.classList.add("show");
+        C.settle(bet, data.balance, grid);
+    }
+    main.addEventListener("click", () => (bet && bet.status === "active" ? cashout() : start()));
+    $("#randomBtn").addEventListener("click", () => {
+        const hidden = tiles.map((_, i) => i).filter((i) => !bet.result.revealed.includes(i));
+        reveal(hidden[Math.floor(Math.random() * hidden.length)]);
+    });
+
+    render();
+    if (window.LUMA.loggedIn) {   // resume an unfinished game
+        Luma.api(URLS.state).then((d) => { if (d.bet) { bet = d.bet; render(); } }).catch(() => {});
+    }
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block title %}Promotions{% endblock %}
+{% block content %}
+<div class="hero-banner">
+    <h1 class="page-title" style="color:#fff;-webkit-text-fill-color:#fff">Enchanted Rewards</h1>
+    <p style="max-width:520px;opacity:.9">Extra magic for every player — cashback every week, bonuses for bringing friends, and glory on the leaderboard.</p>
+</div>
+<div class="grid grid-3">
+    <div class="card promo-card">
+        <div class="emoji">💰</div>
+        <h3>{{ CASHBACK_PERCENT }}% Weekly Cashback</h3>
+        <p>Every Monday we return {{ CASHBACK_PERCENT }}% of your net Aviator losses from the past week straight to your wallet. No wagering requirements.</p>
+        <a class="btn btn-gold btn-sm" href="{% url 'core:home' %}">Play Aviator</a>
+    </div>
+    <div class="card promo-card">
+        <div class="emoji">👥</div>
+        <h3>Refer &amp; Earn {{ CURRENCY }} {{ referral_bonus }}</h3>
+        <p>Share your link. When a friend joins and makes their first deposit, you get {{ CURRENCY }} {{ referral_bonus }} — for every friend.</p>
+        <a class="btn btn-magic btn-sm" href="{% url 'core:referral' %}">Get my link</a>
+    </div>
+    <div class="card promo-card">
+        <div class="emoji">🏆</div>
+        <h3>Sky Legends Leaderboard</h3>
+        <p>The biggest wins and the boldest multipliers of the week earn their place among the stars. Will your name shine?</p>
+        <a class="btn btn-ghost btn-sm" href="{% url 'core:leaderboard' %}">View leaders</a>
+    </div>
+    <div class="card promo-card">
+        <div class="emoji">🎫</div>
+        <h3>Accumulator Magic</h3>
+        <p>Combine up to 20 football picks on one slip and watch the odds multiply together for huge potential wins.</p>
+        <a class="btn btn-ghost btn-sm" href="{% url 'sports:list' %}">Build a slip</a>
+    </div>
+</div>
+{% endblock %}

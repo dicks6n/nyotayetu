@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block title %}Referral{% endblock %}
+{% block content %}
+<div class="hero-banner">
+    <h1 class="page-title" style="color:#fff;-webkit-text-fill-color:#fff">Invite friends, earn {{ CURRENCY }} {{ bonus }}</h1>
+    <p style="opacity:.9">You earn a bonus for every friend who signs up with your link and makes a first deposit.</p>
+</div>
+<div class="grid grid-3" style="margin-bottom:16px">
+    <div class="card stat"><div class="v">{{ referrals.count }}</div><div class="l">Friends joined</div></div>
+    <div class="card stat"><div class="v text-green">{{ rewarded }}</div><div class="l">Bonuses earned</div></div>
+    <div class="card stat"><div class="v text-gold">{% widthratio rewarded 1 bonus %}</div><div class="l">{{ CURRENCY }} earned</div></div>
+</div>
+<div class="card card-pad" style="margin-bottom:16px">
+    <div class="card-title">🔗 Your link</div>
+    <div class="copy-box"><input class="input" readonly value="{{ link }}" id="refLink"><button class="btn btn-gold" onclick="navigator.clipboard.writeText(document.getElementById('refLink').value);Luma.toast('Link copied ✨','success')">Copy</button></div>
+</div>
+<div class="card card-pad">
+    <div class="card-title">👥 Your referrals</div>
+    <table class="table">
+        <thead><tr><th>Player</th><th>Joined</th><th>Status</th></tr></thead>
+        {% for r in referrals %}
+        <tr><td>{{ r.user.username }}</td><td class="muted">{{ r.created_at|date:"d M Y" }}</td><td>{% if r.referral_rewarded %}<span class="badge badge-won">Bonus paid</span>{% else %}<span class="badge badge-pending">Awaiting deposit</span>{% endif %}</td></tr>
+        {% empty %}<tr><td colspan="3" class="empty">No referrals yet — share your link!</td></tr>{% endfor %}
+    </table>
+</div>
+{% endblock %}

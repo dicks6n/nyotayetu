@@ -1,0 +1,107 @@
+{% extends 'casino/_layout.html' %}
+{% block controls %}
+<button class="play-btn" id="dealBtn">Deal</button>
+<div class="bj-actions">
+    <button class="hit" data-a="hit" disabled>Hit</button>
+    <button class="stand" data-a="stand" disabled>Stand</button>
+    <button class="double" data-a="double" disabled>Double</button>
+    <button class="split" data-a="split" disabled>Split</button>
+</div>
+<div class="game-note">Keys: <b>H</b> hit · <b>S</b> stand · <b>D</b> double · <b>P</b> split · <b>Space</b> deal</div>
+{% endblock %}
+{% block stage %}
+<div class="felt">
+    <div class="table-banner" id="banner"></div>
+    <div class="zone"><h4>Dealer</h4><div class="hand" id="dHand"></div><span class="total" id="dTotal">–</span></div>
+    <div class="rules-note">Blackjack pays 3 to 2 · dealer stands on all 17s · insurance not offered</div>
+    <div class="zone"><div class="bj-hands" id="pHands"></div><h4 style="margin-top:8px">Player</h4></div>
+</div>
+{% endblock %}
+{% block game_js %}
+<script>
+(function () {
+    const C = window.Casino, $ = C.$;
+    const URLS = { deal: "{% url 'casino:api_blackjack_deal' %}", act: "{% url 'casino:api_blackjack_action' %}",
+                   state: "{% url 'casino:api_blackjack_state' %}" };
+    let bet = null, busy = false, shownDealer = 0, shownHands = [];
+    const actions = {};
+    document.querySelectorAll(".bj-actions button").forEach((b) => { actions[b.dataset.a] = b; b.addEventListener("click", () => act(b.dataset.a)); });
+    const LABEL = { win: "WIN", lose: "LOSE", push: "PUSH", bust: "BUST", blackjack: "BLACKJACK!" };
+
+    function render() {
+        const r = bet ? bet.result : null, active = bet && bet.status === "active";
+        // dealer: only append new cards so earlier ones don't re-animate
+        const dHand = $("#dHand");
+        if (!r) { dHand.innerHTML = ""; shownDealer = 0; }
+        else {
+            const cards = active ? [r.dealer[0], null] : r.dealer;
+            if (!active && dHand.querySelector(".back")) { dHand.querySelector(".back").outerHTML = Cards.html(cards[1]); shownDealer = 2; }
+            for (let i = shownDealer; i < cards.length; i++) dHand.insertAdjacentHTML("beforeend", Cards.html(cards[i], (i - shownDealer) * 120));
+            shownDealer = cards.length;
+        }
+        $("#dTotal").textContent = r ? r.dealer_total : "–";
+        const hands = r ? r.hands : [];
+        const box = $("#pHands");
+        if (hands.length !== shownHands.length) { box.innerHTML = ""; shownHands = []; }
+        hands.forEach((h, i) => {
+            let el = box.children[i];
+            if (!el) {
+                el = document.createElement("div"); el.className = "bj-hand";
+                el.innerHTML = `<div class="hand"></div><span class="total"></span><div class="meta"></div>`;
+                box.appendChild(el); shownHands[i] = 0;
+            }
+            const handEl = el.querySelector(".hand");
+            for (let k = shownHands[i]; k < h.cards.length; k++) handEl.insertAdjacentHTML("beforeend", Cards.html(h.cards[k], (k - shownHands[i]) * 120));
+            shownHands[i] = h.cards.length;
+            const t = el.querySelector(".total");
+            t.textContent = h.outcome ? `${h.total} · ${LABEL[h.outcome]}` : h.total;
+            t.className = "total " + (["win", "blackjack"].includes(h.outcome) ? "win" : ["lose", "bust"].includes(h.outcome) ? "lose" : "");
+            el.querySelector(".meta").textContent = `${C.fmt(h.stake)} ${C.CUR}${h.doubled ? " · doubled" : ""}`;
+            el.classList.toggle("current", active && hands.length > 1 && i === r.current);
+        });
+        actions.hit.disabled = actions.stand.disabled = !active || busy;
+        actions.double.disabled = !active || busy || !(bet.can && bet.can.double);
+        actions.split.disabled = !active || busy || !(bet.can && bet.can.split);
+        $("#dealBtn").disabled = active || busy;
+        $("#amount").disabled = active;
+    }
+
+    async function call(url, body) {
+        busy = true; render();
+        try { return await C.play(url, body); }
+        catch (e) { if (e.message !== "login") Luma.toast(e.message, "error"); return null; }
+        finally { busy = false; }
+    }
+    function after(data) {
+        if (!data) { render(); return; }
+        bet = data.bet; Luma.setBalance(data.balance); render();
+        if (bet.status !== "active") {
+            const m = Number(bet.multiplier), b = $("#banner");
+            const outs = bet.result.hands.map((h) => h.outcome);
+            b.textContent = outs.includes("blackjack") ? "✨ BLACKJACK ✨" : m > 1 ? `YOU WIN ${C.fmt(bet.payout)}` : m === 1 ? "PUSH" : outs.every((o) => o === "bust") ? "BUST" : "DEALER WINS";
+            b.classList.add("show");
+            C.settle(bet, data.balance, m > 1 ? b : null);
+        } else { C.sound.click(); }
+    }
+    async function deal() {
+        if (busy || (bet && bet.status === "active")) return;
+        $("#banner").classList.remove("show");
+        bet = null; render();
+        after(await call(URLS.deal, { amount: C.amount() }));
+    }
+    async function act(a) {
+        if (busy || !bet || bet.status !== "active" || actions[a].disabled) return;
+        after(await call(URLS.act, { action: a }));
+    }
+    $("#dealBtn").addEventListener("click", deal);
+    document.addEventListener("keydown", (e) => {
+        if (["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)) return;
+        const k = { KeyH: "hit", KeyS: "stand", KeyD: "double", KeyP: "split" }[e.code];
+        if (k) act(k);
+        if (e.code === "Space") { e.preventDefault(); deal(); }
+    });
+    render();
+    if (window.LUMA.loggedIn) Luma.api(URLS.state).then((d) => { if (d.bet) { bet = d.bet; render(); } }).catch(() => {});
+})();
+</script>
+{% endblock %}

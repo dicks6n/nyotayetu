@@ -1,0 +1,24 @@
+{% load odds %}
+{# One match in the list. data-* lets sports-live.js update it in place. #}
+<div class="mrow {% if m.is_suspended %}suspended{% endif %} {% if m.status == 'finished' or m.status == 'cancelled' %}done{% endif %}" data-match="{{ m.id }}" data-home="{{ m.home_team }}" data-away="{{ m.away_team }}" data-live="{{ m.is_live|yesno:'1,0' }}">
+    <div class="when" data-role="when">
+        {% if m.is_live %}<span class="fs-live">{% if m.period == 'HT' %}HT{% else %}{{ m.minute }}<i>'</i>{% endif %}</span>
+        {% elif m.status == 'finished' %}<span class="fs-ft">FT</span>
+        {% elif m.status == 'cancelled' %}<span class="fs-ft">Postp.</span>
+        {% else %}<span class="fs-time">{{ m.kickoff|date:"H:i" }}</span>{% if not hide_date %}<small>{{ m.kickoff|date:"D d.m" }}</small>{% endif %}{% endif %}
+    </div>
+    <div class="teams">
+        <a href="{% url 'sports:match' m.id %}"><span class="t">{{ m.home_team }}</span>{% if m.is_live or m.status == 'finished' %}<b data-role="sh" class="{% if m.is_live %}lv{% endif %}">{{ m.home_score|default:0 }}</b>{% endif %}</a>
+        <a href="{% url 'sports:match' m.id %}"><span class="t">{{ m.away_team }} {% if m.source == 'virtual' %}<span class="vbadge">VIRTUAL</span>{% endif %}</span>{% if m.is_live or m.status == 'finished' %}<b data-role="sa" class="{% if m.is_live %}lv{% endif %}">{{ m.away_score|default:0 }}</b>{% endif %}</a>
+    </div>
+    {% with o=m.odds %}
+    {% for pick in "1X2" %}<button type="button" class="ob" data-market="1x2" data-pick="{{ pick }}" data-mlabel="1X2">{{ o|mkt:"1x2"|pk:pick|default:"—" }}</button>{% endfor %}
+    <span class="gap1"></span>
+    <button type="button" class="ob ou" data-market="ou_2.5" data-pick="over" data-mlabel="Over/Under 2.5">{{ o|mkt:"ou_2.5"|pk:"over"|default:"—" }}</button>
+    <button type="button" class="ob ou" data-market="ou_2.5" data-pick="under" data-mlabel="Over/Under 2.5">{{ o|mkt:"ou_2.5"|pk:"under"|default:"—" }}</button>
+    <span class="gap2"></span>
+    <button type="button" class="ob gg" data-market="btts" data-pick="yes" data-mlabel="GG/NG">{{ o|mkt:"btts"|pk:"yes"|default:"—" }}</button>
+    <button type="button" class="ob gg" data-market="btts" data-pick="no" data-mlabel="GG/NG">{{ o|mkt:"btts"|pk:"no"|default:"—" }}</button>
+    {% endwith %}
+    <a class="more" href="{% url 'sports:match' m.id %}" title="All markets">+{{ m.market_count }}</a>
+</div>
